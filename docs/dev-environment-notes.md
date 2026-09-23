@@ -25,11 +25,19 @@ talks to Postgres directly through the `@prisma/adapter-pg` driver adapter at
 runtime, no native engine binary involved (see `src/server/db.ts`).
 
 It only affects the dev-time command that computes and applies a schema
-migration. When you change `prisma/schema.prisma` and need to create/apply a
-migration **on this machine**, run it inside a Linux container instead, which
-sidesteps the Windows policy entirely:
+migration. `prisma migrate dev` also refuses to run at all in a
+non-interactive shell (separately from the above), so the workflow on this
+machine is: generate the migration SQL with `migrate diff`, drop it into a
+migration folder by hand, then apply with `migrate deploy` (which doesn't
+require a TTY). All three steps run inside a Linux container to route around
+the Windows policy:
 
 ```bash
+export MSYS_NO_PATHCONV=1   # Git Bash only — otherwise /app gets mangled into a Windows path
+
+NAME=<migration_name>   # e.g. add_offers_table
+mkdir -p "prisma/migrations/$(date +%Y%m%d%H%M%S)_${NAME}"
+
 docker run --rm \
   --network estin-crm-handover_default \
   -v "estin-crm-handover_prisma_node_modules:/app/node_modules" \
@@ -37,11 +45,8 @@ docker run --rm \
   -w /app \
   -e DATABASE_URL="postgresql://estin:estin_dev_password@db:5432/estin_crm" \
   node:22-bookworm-slim \
-  sh -c "npm install && npx prisma migrate dev --name <migration_name>"
+  sh -c "npx prisma migrate diff --from-config-datasource prisma.config.ts --to-schema prisma/schema.prisma --script > prisma/migrations/*_${NAME}/migration.sql && npx prisma migrate deploy"
 ```
-
-(In Git Bash, prefix with `export MSYS_NO_PATHCONV=1` first, or the `/app`
-paths get mangled into Windows paths.)
 
 After the migration is applied, run `npx prisma generate` natively on
 Windows as normal (that command doesn't hit the blocked binary) so the

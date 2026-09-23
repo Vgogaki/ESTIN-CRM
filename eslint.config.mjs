@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference-only prototypes from the design phase — not built or linted
+    // as part of the app. See prototypes/README.md.
+    "prototypes/**",
   ]),
 ]);
 

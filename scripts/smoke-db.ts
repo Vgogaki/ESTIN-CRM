@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { db } from "../src/server/db.ts";
+import { db } from "../src/server/db";
 
 async function main() {
   const roleCount = await db.adminRole.count();

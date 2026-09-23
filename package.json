@@ -9,13 +9,16 @@
     "lint": "eslint",
     "db:up": "docker compose up -d db",
     "db:studio": "prisma studio",
-    "db:smoke": "node --experimental-strip-types scripts/smoke-db.ts"
+    "db:smoke": "tsx scripts/smoke-db.ts",
+    "db:seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "bcryptjs": "3.0.3",
     "dotenv": "18.0.3",
     "next": "16.3.6",
+    "otplib": "13.5.0",
     "pg": "8.23.0",
     "prisma": "7.10.0",
     "react": "19.2.8",
@@ -24,6 +27,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "2.4.6",
     "@types/node": "^20",
     "@types/pg": "8.23.1",
     "@types/react": "^19",
@@ -31,11 +35,13 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
+    "tsx": "4.23.15",
     "typescript": "^5"
   },
   "allowScripts": {
     "@prisma/engines@7.10.0": true,
     "prisma@7.10.0": true,
-    "unrs-resolver@1.12.2": true
+    "unrs-resolver@1.12.2": true,
+    "esbuild@0.28.2": true
   }
 }

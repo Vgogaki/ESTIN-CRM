@@ -311,6 +311,7 @@ model AdminUser {
 
 model AdminSession {
   id          String    @id @default(cuid())
+  tokenHash   String    @unique
   adminUserId String
   adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
   ipAddress   String
@@ -323,6 +324,7 @@ model AdminSession {
 
 model TraderSession {
   id        String   @id @default(cuid())
+  tokenHash String   @unique
   personId  String
   person    Person   @relation(fields: [personId], references: [id])
   ipAddress String

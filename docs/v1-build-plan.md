@@ -101,10 +101,10 @@ Every module below is in scope for V1. Nothing is added after this point without
 | 1.2 | ⭐ Trader authentication | 🟢 | **Built** — registration, email verification, login/logout, password reset, lockout, optional TOTP 2FA. Email delivery still stubbed (dev console log) pending a provider decision (spec §4.5) |
 | 1.3 | ⭐ Admin roles & permissions | 🟢 | **Built** — six starting roles seeded as configurable data, server-side permission enforcement. Segregation-of-duties check (KYC reviewer ≠ payout approver) lands with the Phase 5 payout endpoint |
 | 1.4 | ⭐ Audit logging | 🟢 | **Built** — every auth action logged with actor/action/entity/reason/IP; table is append-only at the database level (Postgres trigger rejects UPDATE/DELETE), verified directly |
-| 1.5 | ⭐ Challenge Builder (configurable) | 🟡 | Phases as data, not code. See §2.1 |
-| 1.6 | ⭐ Challenge versioning | 🔴 | Editing creates a new version; live accounts stay pinned. **Not on the original list. Consumer-protection critical** |
-| 1.7 | Terms acceptance records | 🔴 | Which rulebook version was accepted, when, from what IP. Dispute evidence |
-| 1.8 | Environments & deployment | 🔴 | Staging + production, pipeline, backups, monitoring |
+| 1.5 | ⭐ Challenge Builder (configurable) | 🟢 | **Built** — multi-phase builder with a live/draft distinction; back-office screens to create, edit and publish. Phases as data, not code. See §2.1 |
+| 1.6 | ⭐ Challenge versioning | 🟢 | **Built** — editing a type with zero accounts changes it in place; editing one with live accounts creates a new version and supersedes it, leaving existing accounts pinned to the old version. Automated test suite (`src/server/challenge-types.test.ts`) covers this directly, plus verified through the actual UI. Version history view shows a field-level diff between versions |
+| 1.7 | Terms acceptance records | 🟢 | **Built** — recorded against the exact challenge type version at account creation. The rulebook/terms document itself doesn't exist yet (brand/entity naming still open, decisions.md #9), so this uses a placeholder version string — swap in the real document version once legal drafts it |
+| 1.8 | Environments & deployment | 🟡 | **Dockerfile built and verified** — builds, runs migrations, serves requests, tested end-to-end locally against a real Postgres instance. Staging/production hosting, secrets management, backups, and monitoring are the technical contractor's Foundation Setup — see `docs/deployment.md` |
 
 ### Phase 2 — Commercial flow
 

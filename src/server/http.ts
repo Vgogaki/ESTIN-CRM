@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthError } from "./auth/errors";
 import { PermissionDeniedError } from "./permissions";
+import { ValidationError } from "./errors";
 
 export function errorResponse(err: unknown) {
   if (err instanceof ZodError) {
@@ -12,6 +13,9 @@ export function errorResponse(err: unknown) {
   }
   if (err instanceof PermissionDeniedError) {
     return NextResponse.json({ error: err.message }, { status: 403 });
+  }
+  if (err instanceof ValidationError) {
+    return NextResponse.json({ error: err.message }, { status: err.status });
   }
   if (err instanceof AuthError) {
     return NextResponse.json(

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Props = {
   admin: { name: string; email: string; roleName: string; permissions: string[] };
@@ -38,6 +39,10 @@ export default function AdminDashboard({ admin }: Props) {
   return (
     <main className="mx-auto max-w-lg px-6 py-10">
       <h1 className="text-xl font-semibold">Back office</h1>
+      <nav className="mt-3 flex gap-4 text-sm underline">
+        <Link href="/admin/challenge-types">Challenge types</Link>
+        <Link href="/admin/test-tools">Test tools</Link>
+      </nav>
       <div className="mt-4 rounded border p-4">
         <p>
           <strong>Signed in as:</strong> {admin.name} ({admin.email})

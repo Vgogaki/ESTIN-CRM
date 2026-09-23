@@ -1,0 +1,371 @@
+// ESTIN CRM — data model
+// Source of truth: docs/crm-specification.md (§3) and docs/modules-to-design.md (§1.5/1.6, §1.7)
+// Every write to a business record must be paired with an AuditLog entry — see src/server/audit.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Shared enums
+// ---------------------------------------------------------------------------
+
+enum KycStatus {
+  not_started
+  submitted
+  verified
+  rejected
+}
+
+enum ProductType {
+  standard
+  promotional
+  competition_linked
+  instant_funded
+}
+
+enum DrawdownType {
+  trailing
+  static
+}
+
+enum KycTiming {
+  at_creation
+  after_evaluation
+  at_first_payout
+}
+
+enum AccountPhase {
+  evaluation
+  pass_review
+  funded
+  closed
+}
+
+enum AccountStatus {
+  active
+  passed
+  breached
+  closed
+}
+
+enum WithdrawalStatus {
+  pending
+  approved
+  declined
+  paid
+}
+
+enum ActorType {
+  admin
+  trader
+  system
+  integration
+}
+
+enum AuthTokenPurpose {
+  email_verification
+  password_reset
+}
+
+// ---------------------------------------------------------------------------
+// Challenge Builder — rules live on versioned templates, never on accounts.
+// Editing a live template creates a new ChallengeType row (new version);
+// existing accounts keep referencing the row (and therefore the version)
+// they were pinned to at purchase. See CLAUDE.md "Challenge rules".
+// ---------------------------------------------------------------------------
+
+model ChallengeType {
+  id          String      @id @default(cuid())
+  familyId    String
+  version     Int
+  name        String
+  description String?
+  productType ProductType @default(standard)
+
+  accountSize Decimal @db.Decimal(14, 2)
+  fee         Decimal @db.Decimal(14, 2)
+  currency    String  @default("EUR")
+
+  leverageCap          Int
+  permittedInstruments String[]
+  kycTiming            KycTiming @default(after_evaluation)
+
+  // Sellable vs archived. Only one version per familyId should be active.
+  active Boolean @default(false)
+
+  createdAt   DateTime   @default(now())
+  publishedAt DateTime?
+  createdById String?
+  createdBy   AdminUser? @relation(fields: [createdById], references: [id])
+
+  phases          ChallengePhase[]
+  accounts        Account[]
+  termsAcceptance TermsAcceptance[]
+
+  @@unique([familyId, version])
+  @@index([familyId])
+}
+
+// One row per phase in the Challenge Builder (0..n). A funded-stage row
+// (isFunded = true) carries profit split / payout terms instead of a
+// profit target. See docs/modules-to-design.md §1.5/1.6.
+model ChallengePhase {
+  id              String        @id @default(cuid())
+  challengeTypeId String
+  challengeType   ChallengeType @relation(fields: [challengeTypeId], references: [id], onDelete: Cascade)
+
+  order    Int
+  label    String
+  isFunded Boolean @default(false)
+
+  // Evaluation-phase rules (null on the funded-stage row)
+  profitTargetPct Decimal?     @db.Decimal(6, 3)
+  dailyLossPct    Decimal      @db.Decimal(6, 3)
+  maxLossPct      Decimal      @db.Decimal(6, 3)
+  drawdownType    DrawdownType @default(trailing)
+  minTradingDays  Int          @default(0)
+  timeLimitDays   Int?
+  consistencyRule Json?
+
+  // Funded-stage rules (null on evaluation-phase rows)
+  profitSplitPct  Decimal? @db.Decimal(5, 2)
+  payoutCycleDays Int?
+  minPayoutAmount Decimal? @db.Decimal(14, 2)
+
+  accountsCurrentlyOnPhase Account[]
+
+  @@unique([challengeTypeId, order])
+}
+
+// ---------------------------------------------------------------------------
+// People and accounts — one person, many accounts. KYC on the person.
+// ---------------------------------------------------------------------------
+
+model Person {
+  id       String @id @default(cuid())
+  fullName String
+  email    String @unique
+  country  String
+
+  kycStatus        KycStatus @default(not_started)
+  identityMismatch Boolean   @default(false)
+  marketingConsent Boolean   @default(false)
+
+  passwordHash        String?
+  emailVerifiedAt     DateTime?
+  twoFactorSecret     String?
+  twoFactorEnabledAt  DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  // Void-with-reason soft delete. GDPR erasure anonymises the row instead
+  // (see src/server/gdpr.ts) but never removes it — financial history stays.
+  voidedAt   DateTime?
+  voidReason String?
+  voidedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts        Account[]
+  sessions        TraderSession[]
+  termsAcceptance TermsAcceptance[]
+
+  @@index([email])
+}
+
+model Account {
+  id              String          @id @default(cuid())
+  personId        String
+  person          Person          @relation(fields: [personId], references: [id])
+  challengeTypeId String
+  challengeType   ChallengeType   @relation(fields: [challengeTypeId], references: [id])
+  currentPhaseId  String?
+  currentPhase    ChallengePhase? @relation(fields: [currentPhaseId], references: [id])
+
+  orderRef String @unique
+
+  phase  AccountPhase  @default(evaluation)
+  status AccountStatus @default(active)
+
+  equity         Decimal @db.Decimal(14, 2)
+  balance        Decimal @db.Decimal(14, 2)
+  dayStartEquity Decimal @db.Decimal(14, 2)
+  peakEquity     Decimal @db.Decimal(14, 2)
+  tradingDays    Int     @default(0)
+
+  startedAt   DateTime  @default(now())
+  endedAt     DateTime?
+  closeReason String?
+
+  voidedAt   DateTime?
+  voidReason String?
+  voidedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  equityTicks     EquityTick[]
+  withdrawals     Withdrawal[]
+  termsAcceptance TermsAcceptance[]
+
+  @@index([personId])
+  @@index([challengeTypeId])
+}
+
+model EquityTick {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id])
+  equity       Decimal  @db.Decimal(14, 2)
+  balance      Decimal  @db.Decimal(14, 2)
+  openPnl      Decimal  @db.Decimal(14, 2)
+  closedTrades Int
+  tradingDay   DateTime @db.Date
+  timestamp    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([accountId, timestamp])
+}
+
+model Withdrawal {
+  id        String           @id @default(cuid())
+  accountId String
+  account   Account          @relation(fields: [accountId], references: [id])
+  profit    Decimal          @db.Decimal(14, 2)
+  splitPct  Decimal          @db.Decimal(5, 2)
+  amount    Decimal          @db.Decimal(14, 2)
+  method    String?
+  status    WithdrawalStatus @default(pending)
+
+  requestedAt  DateTime   @default(now())
+  decidedById  String?
+  decidedBy    AdminUser? @relation(fields: [decidedById], references: [id])
+  decidedAt    DateTime?
+  decisionNote String?
+
+  @@index([accountId])
+  @@index([status])
+}
+
+// At purchase: which rulebook/terms version the trader accepted, matched to
+// the exact challenge-type version they bought. Dispute evidence.
+// See docs/modules-to-design.md §1.7.
+model TermsAcceptance {
+  id              String        @id @default(cuid())
+  personId        String
+  person          Person        @relation(fields: [personId], references: [id])
+  accountId       String
+  account         Account       @relation(fields: [accountId], references: [id])
+  challengeTypeId String
+  challengeType   ChallengeType @relation(fields: [challengeTypeId], references: [id])
+  termsVersion    String
+  acceptedAt      DateTime      @default(now())
+  ipAddress       String
+
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Back-office admin users, roles and sessions
+// ---------------------------------------------------------------------------
+
+model AdminRole {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  // Flat list of permission strings, e.g. "traders.view", "payouts.approve".
+  // See docs/modules-to-design.md §1.3 for the starting role set.
+  permissions String[]
+
+  users AdminUser[]
+}
+
+model AdminUser {
+  id     String    @id @default(cuid())
+  email  String    @unique
+  name   String
+  roleId String
+  role   AdminRole @relation(fields: [roleId], references: [id])
+
+  passwordHash        String
+  twoFactorSecret     String?
+  twoFactorEnabledAt  DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions           AdminSession[]
+  createdChallenges  ChallengeType[]
+  decidedWithdrawals Withdrawal[]
+
+  @@index([email])
+}
+
+model AdminSession {
+  id          String    @id @default(cuid())
+  adminUserId String
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
+  ipAddress   String
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+
+  @@index([adminUserId])
+}
+
+model TraderSession {
+  id        String   @id @default(cuid())
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id])
+  ipAddress String
+  userAgent String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([personId])
+}
+
+// Shared by trader and admin flows: email verification and password reset.
+model AuthToken {
+  id        String           @id @default(cuid())
+  actorType ActorType
+  actorId   String
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([actorType, actorId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit log — append-only. No application code should ever update or delete
+// a row here. A database-level trigger enforcing that ships with module 1.4.
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  timestamp  DateTime  @default(now())
+  actorType  ActorType
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  reason     String?
+  ipAddress  String?
+
+  @@index([entityType, entityId])
+  @@index([actorType, actorId])
+  @@index([timestamp])
+}

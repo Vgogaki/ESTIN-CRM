@@ -3,13 +3,13 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 function VerifyEmailInner() {
   const params = useSearchParams();
   const token = params.get("token") ?? "";
-  const [status, setStatus] = useState<"pending" | "ok" | "error">(
-    token ? "pending" : "error",
-  );
+  const [status, setStatus] = useState<"pending" | "ok" | "error">(token ? "pending" : "error");
   const [error, setError] = useState<string | null>(
     token ? null : "Missing verification token.",
   );
@@ -35,22 +35,30 @@ function VerifyEmailInner() {
       });
   }, [token]);
 
-  if (status === "pending") return <p>Verifying…</p>;
-  if (status === "error") return <p className="text-red-600">{error}</p>;
+  if (status === "pending") return <p className="text-sm text-sub">Verifying…</p>;
+  if (status === "error") return <Alert tone="danger">{error}</Alert>;
   return (
-    <p className="text-green-700">
-      Email verified. <Link href="/portal/login" className="underline">Sign in</Link>
-    </p>
+    <Alert tone="success">
+      Email verified.{" "}
+      <Link href="/portal/login" className="underline">
+        Sign in
+      </Link>
+    </Alert>
   );
 }
 
 export default function VerifyEmailPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
-      <h1 className="text-xl font-semibold">Verifying your email</h1>
-      <Suspense fallback={null}>
-        <VerifyEmailInner />
-      </Suspense>
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <div className="mb-8 text-center">
+        <div className="font-display text-lg font-semibold tracking-[0.14em]">ESTIN</div>
+      </div>
+      <Card className="p-6">
+        <h1 className="mb-5 font-display text-lg font-semibold">Verifying your email</h1>
+        <Suspense fallback={null}>
+          <VerifyEmailInner />
+        </Suspense>
+      </Card>
     </main>
   );
 }

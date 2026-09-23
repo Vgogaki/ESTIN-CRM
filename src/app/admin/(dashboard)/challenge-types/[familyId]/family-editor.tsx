@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChallengeTypeForm, { type FormValue } from "../challenge-type-form";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 
 type LatestVersion = {
   id: string;
@@ -79,24 +82,16 @@ export default function FamilyEditor({ latest }: { latest: LatestVersion }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <span
-          className={`rounded px-2 py-1 text-xs ${
-            latest.active ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"
-          }`}
-        >
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge tone={latest.active ? "success" : "warning"}>
           {latest.active ? "Published — sellable now" : "Draft — not sellable yet"}
-        </span>
+        </Badge>
         {!latest.active && (
-          <button
-            onClick={publish}
-            disabled={publishing}
-            className="rounded bg-slate-900 px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          >
+          <Button variant="ghost" onClick={publish} disabled={publishing}>
             {publishing ? "Publishing…" : "Publish this version"}
-          </button>
+          </Button>
         )}
-        {publishError && <p className="text-sm text-red-600">{publishError}</p>}
+        {publishError && <Alert tone="danger">{publishError}</Alert>}
       </div>
 
       <ChallengeTypeForm

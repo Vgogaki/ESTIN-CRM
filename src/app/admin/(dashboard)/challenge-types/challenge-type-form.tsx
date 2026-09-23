@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/field";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 type Phase = {
   order: number;
@@ -101,8 +105,8 @@ export default function ChallengeTypeForm({
   function addEvaluationPhase() {
     setValue((v) => {
       const insertAt = v.phases.findIndex((p) => p.isFunded);
-      const order = (insertAt === -1 ? v.phases.length : insertAt) + 1;
       const phases = [...v.phases];
+      const order = (insertAt === -1 ? phases.length : insertAt) + 1;
       phases.splice(insertAt === -1 ? phases.length : insertAt, 0, emptyEvaluationPhase(order));
       return { ...v, phases: phases.map((p, i) => ({ ...p, order: i + 1 })) };
     });
@@ -152,221 +156,196 @@ export default function ChallengeTypeForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          Name
-          <input
-            required
-            value={value.name}
-            onChange={(e) => setValue({ ...value, name: e.target.value })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Product type
-          <select
-            value={value.productType}
-            onChange={(e) => setValue({ ...value, productType: e.target.value as FormValue["productType"] })}
-            className="rounded border px-3 py-2"
-          >
-            <option value="standard">Standard</option>
-            <option value="promotional">Promotional</option>
-            <option value="competition_linked">Competition-linked</option>
-            <option value="instant_funded">Instant funded</option>
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Account size
-          <input
-            type="number"
-            required
-            value={value.accountSize}
-            onChange={(e) => setValue({ ...value, accountSize: Number(e.target.value) })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Fee
-          <input
-            type="number"
-            required
-            value={value.fee}
-            onChange={(e) => setValue({ ...value, fee: Number(e.target.value) })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Currency
-          <input
-            required
-            maxLength={3}
-            value={value.currency}
-            onChange={(e) => setValue({ ...value, currency: e.target.value.toUpperCase() })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Leverage cap (e.g. 100 for 1:100)
-          <input
-            type="number"
-            required
-            value={value.leverageCap}
-            onChange={(e) => setValue({ ...value, leverageCap: Number(e.target.value) })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="col-span-2 flex flex-col gap-1 text-sm">
-          Permitted instruments (comma-separated)
-          <input
-            value={value.permittedInstruments}
-            onChange={(e) => setValue({ ...value, permittedInstruments: e.target.value })}
-            className="rounded border px-3 py-2"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          KYC timing
-          <select
-            value={value.kycTiming}
-            onChange={(e) => setValue({ ...value, kycTiming: e.target.value as FormValue["kycTiming"] })}
-            className="rounded border px-3 py-2"
-          >
-            <option value="at_creation">At creation</option>
-            <option value="after_evaluation">After evaluation</option>
-            <option value="at_first_payout">At first payout</option>
-          </select>
-        </label>
-      </div>
+    <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      <Card className="p-5">
+        <h2 className="mb-4 font-display text-sm font-semibold">Details</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Name" className="col-span-2">
+            <Input
+              required
+              value={value.name}
+              onChange={(e) => setValue({ ...value, name: e.target.value })}
+            />
+          </Field>
+          <Field label="Product type">
+            <Select
+              value={value.productType}
+              onChange={(e) =>
+                setValue({ ...value, productType: e.target.value as FormValue["productType"] })
+              }
+            >
+              <option value="standard">Standard</option>
+              <option value="promotional">Promotional</option>
+              <option value="competition_linked">Competition-linked</option>
+              <option value="instant_funded">Instant funded</option>
+            </Select>
+          </Field>
+          <Field label="KYC timing">
+            <Select
+              value={value.kycTiming}
+              onChange={(e) =>
+                setValue({ ...value, kycTiming: e.target.value as FormValue["kycTiming"] })
+              }
+            >
+              <option value="at_creation">At creation</option>
+              <option value="after_evaluation">After evaluation</option>
+              <option value="at_first_payout">At first payout</option>
+            </Select>
+          </Field>
+          <Field label="Account size">
+            <Input
+              type="number"
+              required
+              value={value.accountSize}
+              onChange={(e) => setValue({ ...value, accountSize: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Fee">
+            <Input
+              type="number"
+              required
+              value={value.fee}
+              onChange={(e) => setValue({ ...value, fee: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Currency">
+            <Input
+              required
+              maxLength={3}
+              value={value.currency}
+              onChange={(e) => setValue({ ...value, currency: e.target.value.toUpperCase() })}
+            />
+          </Field>
+          <Field label="Leverage cap" hint="e.g. 100 for 1:100">
+            <Input
+              type="number"
+              required
+              value={value.leverageCap}
+              onChange={(e) => setValue({ ...value, leverageCap: Number(e.target.value) })}
+            />
+          </Field>
+          <Field label="Permitted instruments" hint="comma-separated" className="col-span-2">
+            <Input
+              value={value.permittedInstruments}
+              onChange={(e) => setValue({ ...value, permittedInstruments: e.target.value })}
+            />
+          </Field>
+        </div>
+      </Card>
 
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="font-medium">Phases</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-display text-sm font-semibold">Phases</h2>
           <button
             type="button"
             onClick={addEvaluationPhase}
-            className="text-sm underline"
+            className="text-sm text-acc hover:underline"
           >
             + Add evaluation phase
           </button>
         </div>
         <div className="flex flex-col gap-3">
           {value.phases.map((phase, i) => (
-            <div key={i} className="rounded border p-3">
-              <div className="mb-2 flex items-center justify-between">
+            <Card key={i} className="p-4">
+              <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm font-medium">
                   {i + 1}. {phase.isFunded ? "Funded stage" : "Evaluation phase"}
                 </span>
                 {!phase.isFunded && value.phases.length > 1 && (
-                  <button type="button" onClick={() => removePhase(i)} className="text-xs text-red-600 underline">
+                  <button
+                    type="button"
+                    onClick={() => removePhase(i)}
+                    className="text-xs text-danger hover:underline"
+                  >
                     Remove
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <label className="flex flex-col gap-1">
-                  Label
-                  <input
+              <div className="grid grid-cols-3 gap-3">
+                <Field label="Label">
+                  <Input
                     value={phase.label}
                     onChange={(e) => updatePhase(i, { label: e.target.value })}
-                    className="rounded border px-2 py-1"
                   />
-                </label>
+                </Field>
                 {!phase.isFunded && (
-                  <label className="flex flex-col gap-1">
-                    Profit target %
-                    <input
+                  <Field label="Profit target %">
+                    <Input
                       type="number"
                       value={phase.profitTargetPct ?? ""}
                       onChange={(e) => updatePhase(i, { profitTargetPct: Number(e.target.value) })}
-                      className="rounded border px-2 py-1"
                     />
-                  </label>
+                  </Field>
                 )}
-                <label className="flex flex-col gap-1">
-                  Daily loss %
-                  <input
+                <Field label="Daily loss %">
+                  <Input
                     type="number"
                     value={phase.dailyLossPct}
                     onChange={(e) => updatePhase(i, { dailyLossPct: Number(e.target.value) })}
-                    className="rounded border px-2 py-1"
                   />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Max loss %
-                  <input
+                </Field>
+                <Field label="Max loss %">
+                  <Input
                     type="number"
                     value={phase.maxLossPct}
                     onChange={(e) => updatePhase(i, { maxLossPct: Number(e.target.value) })}
-                    className="rounded border px-2 py-1"
                   />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Drawdown type
-                  <select
+                </Field>
+                <Field label="Drawdown type">
+                  <Select
                     value={phase.drawdownType}
-                    onChange={(e) => updatePhase(i, { drawdownType: e.target.value as Phase["drawdownType"] })}
-                    className="rounded border px-2 py-1"
+                    onChange={(e) =>
+                      updatePhase(i, { drawdownType: e.target.value as Phase["drawdownType"] })
+                    }
                   >
                     <option value="trailing">Trailing</option>
                     <option value="static">Static</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1">
-                  Min trading days
-                  <input
+                  </Select>
+                </Field>
+                <Field label="Min trading days">
+                  <Input
                     type="number"
                     value={phase.minTradingDays}
                     onChange={(e) => updatePhase(i, { minTradingDays: Number(e.target.value) })}
-                    className="rounded border px-2 py-1"
                   />
-                </label>
-                <label className="flex flex-col gap-1">
-                  Time limit (days, blank = none)
-                  <input
+                </Field>
+                <Field label="Time limit" hint="days, blank = none">
+                  <Input
                     type="number"
                     value={phase.timeLimitDays ?? ""}
                     onChange={(e) =>
                       updatePhase(i, { timeLimitDays: e.target.value ? Number(e.target.value) : null })
                     }
-                    className="rounded border px-2 py-1"
                   />
-                </label>
+                </Field>
                 {phase.isFunded && (
                   <>
-                    <label className="flex flex-col gap-1">
-                      Profit split % (trader)
-                      <input
+                    <Field label="Profit split %" hint="trader's share">
+                      <Input
                         type="number"
                         value={phase.profitSplitPct ?? ""}
                         onChange={(e) => updatePhase(i, { profitSplitPct: Number(e.target.value) })}
-                        className="rounded border px-2 py-1"
                       />
-                    </label>
-                    <label className="flex flex-col gap-1">
-                      Payout cycle (days)
-                      <input
+                    </Field>
+                    <Field label="Payout cycle" hint="days">
+                      <Input
                         type="number"
                         value={phase.payoutCycleDays ?? ""}
                         onChange={(e) => updatePhase(i, { payoutCycleDays: Number(e.target.value) })}
-                        className="rounded border px-2 py-1"
                       />
-                    </label>
+                    </Field>
                   </>
                 )}
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button
-        type="submit"
-        disabled={saving}
-        className="w-fit rounded bg-slate-900 px-4 py-2 text-white disabled:opacity-50"
-      >
+      {error && <Alert tone="danger">{error}</Alert>}
+      <Button type="submit" disabled={saving} className="w-fit">
         {saving ? "Saving…" : submitLabel}
-      </button>
+      </Button>
     </form>
   );
 }

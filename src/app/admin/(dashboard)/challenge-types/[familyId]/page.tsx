@@ -2,6 +2,10 @@ import { redirect, notFound } from "next/navigation";
 import { getCurrentAdmin } from "@/server/auth/guard";
 import { hasPermission } from "@/server/permissions";
 import { getChallengeTypeFamily, diffChallengeTypeVersions, serializeChallengeType } from "@/server/challenge-types";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
 import FamilyEditor from "./family-editor";
 
 export default async function ChallengeTypeFamilyPage({
@@ -12,7 +16,7 @@ export default async function ChallengeTypeFamilyPage({
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/admin/login");
   if (!hasPermission(admin.role.permissions, "challengeTypes.view")) {
-    return <main className="p-10">You don&apos;t have permission to view this.</main>;
+    return <Alert tone="danger">You don&apos;t have permission to view this.</Alert>;
   }
 
   const { familyId } = await params;
@@ -23,11 +27,13 @@ export default async function ChallengeTypeFamilyPage({
   const canEdit = hasPermission(admin.role.permissions, "challengeTypes.edit");
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <h1 className="text-xl font-semibold">{latest.name}</h1>
-      <p className="mb-6 text-sm text-slate-600">
-        {versions.length} version{versions.length === 1 ? "" : "s"} · editing v{latest.version}
-      </p>
+    <div>
+      <PageHeader
+        title={latest.name}
+        subtitle={`${versions.length} version${versions.length === 1 ? "" : "s"} · editing v${latest.version}`}
+        backHref="/admin/challenge-types"
+        backLabel="Challenge types"
+      />
 
       {canEdit ? (
         <FamilyEditor
@@ -59,14 +65,14 @@ export default async function ChallengeTypeFamilyPage({
           }}
         />
       ) : (
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-sub">
           {latest.active ? `Published — v${latest.version} is live.` : "Not published yet."}
         </p>
       )}
 
       {versions.length > 1 && (
         <div className="mt-10">
-          <h2 className="mb-3 font-medium">Version history</h2>
+          <h2 className="mb-3 font-display text-sm font-semibold">Version history</h2>
           <div className="flex flex-col gap-3">
             {versions
               .slice()
@@ -77,34 +83,36 @@ export default async function ChallengeTypeFamilyPage({
                   ? diffChallengeTypeVersions(serializeChallengeType(previous), serializeChallengeType(v))
                   : [];
                 return (
-                  <div key={v.id} className="rounded border p-3 text-sm">
+                  <Card key={v.id} className="p-4 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        v{v.version} {v.active && "(live)"}
-                      </span>
-                      <span className="text-slate-500">
-                        {v.accountCount} account{v.accountCount === 1 ? "" : "s"} pinned to this version
-                      </span>
+                      <span className="font-medium">v{v.version}</span>
+                      <div className="flex items-center gap-2">
+                        {v.active && <Badge tone="success">Live</Badge>}
+                        <span className="text-sub">
+                          {v.accountCount} account{v.accountCount === 1 ? "" : "s"} pinned
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-slate-500">
+                    <p className="mt-1 text-sub">
                       Created {v.createdAt.toLocaleString()}
                       {v.publishedAt && ` · published ${v.publishedAt.toLocaleString()}`}
                     </p>
                     {previous && changes.length > 0 && (
-                      <ul className="mt-2 list-inside list-disc text-slate-600">
+                      <ul className="mt-2 list-inside list-disc text-sub">
                         {changes.map((c) => (
                           <li key={c.field}>
-                            {c.field}: {JSON.stringify(c.before)} → {JSON.stringify(c.after)}
+                            <span className="text-ink">{c.field}</span>: {JSON.stringify(c.before)} →{" "}
+                            {JSON.stringify(c.after)}
                           </li>
                         ))}
                       </ul>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

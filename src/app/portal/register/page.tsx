@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
@@ -28,52 +33,58 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
-      <h1 className="text-xl font-semibold">Create your account</h1>
-      {message ? (
-        <p className="text-sm text-green-700">
-          {message} (Dev note: no email provider is configured yet — check the server log
-          for the verification link.)
-        </p>
-      ) : (
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <input
-            placeholder="Full name"
-            required
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="rounded border px-3 py-2"
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="rounded border px-3 py-2"
-          />
-          <input
-            placeholder="Country (2-letter code, e.g. CY)"
-            required
-            maxLength={2}
-            value={country}
-            onChange={(e) => setCountry(e.target.value.toUpperCase())}
-            className="rounded border px-3 py-2"
-          />
-          <input
-            type="password"
-            placeholder="Password (min 10 characters)"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="rounded border px-3 py-2"
-          />
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white">
-            Create account
-          </button>
-        </form>
-      )}
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <div className="mb-8 text-center">
+        <div className="font-display text-lg font-semibold tracking-[0.14em]">ESTIN</div>
+      </div>
+      <Card className="p-6">
+        <h1 className="mb-5 font-display text-lg font-semibold">Create your account</h1>
+        {message ? (
+          <Alert tone="success">
+            {message} (Dev note: no email provider is configured yet — check the server log for
+            the verification link.)
+          </Alert>
+        ) : (
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <Field label="Full name">
+              <Input required value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            </Field>
+            <Field label="Email">
+              <Input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+            <Field label="Country" hint="2-letter code, e.g. CY">
+              <Input
+                required
+                maxLength={2}
+                value={country}
+                onChange={(e) => setCountry(e.target.value.toUpperCase())}
+              />
+            </Field>
+            <Field label="Password" hint="Minimum 10 characters">
+              <Input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+            {error && <Alert tone="danger">{error}</Alert>}
+            <Button type="submit" className="w-full">
+              Create account
+            </Button>
+          </form>
+        )}
+        <div className="mt-5 text-center text-sm">
+          <Link href="/portal/login" className="text-sub hover:text-acc">
+            Already have an account? Sign in
+          </Link>
+        </div>
+      </Card>
     </main>
   );
 }

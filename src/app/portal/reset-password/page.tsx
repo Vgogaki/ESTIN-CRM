@@ -2,6 +2,10 @@
 
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
 
 function ResetPasswordForm() {
   const params = useSearchParams();
@@ -27,36 +31,41 @@ function ResetPasswordForm() {
   }
 
   if (!token) {
-    return <p className="text-sm text-red-600">Missing reset token — use the link from the email.</p>;
+    return <Alert tone="danger">Missing reset token — use the link from the email.</Alert>;
   }
 
   return message ? (
-    <p className="text-sm text-green-700">{message}</p>
+    <Alert tone="success">{message}</Alert>
   ) : (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3">
-      <input
-        type="password"
-        placeholder="New password (min 10 characters)"
-        required
-        value={newPassword}
-        onChange={(e) => setNewPassword(e.target.value)}
-        className="rounded border px-3 py-2"
-      />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-white">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Field label="New password" hint="Minimum 10 characters">
+        <Input
+          type="password"
+          required
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+        />
+      </Field>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <Button type="submit" className="w-full">
         Set new password
-      </button>
+      </Button>
     </form>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-4 px-6">
-      <h1 className="text-xl font-semibold">Set a new password</h1>
-      <Suspense fallback={null}>
-        <ResetPasswordForm />
-      </Suspense>
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <div className="mb-8 text-center">
+        <div className="font-display text-lg font-semibold tracking-[0.14em]">ESTIN</div>
+      </div>
+      <Card className="p-6">
+        <h1 className="mb-5 font-display text-lg font-semibold">Set a new password</h1>
+        <Suspense fallback={null}>
+          <ResetPasswordForm />
+        </Suspense>
+      </Card>
     </main>
   );
 }

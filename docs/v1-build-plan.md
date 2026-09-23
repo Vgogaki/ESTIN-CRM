@@ -97,10 +97,10 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 1.1 | ⭐ Database schema & data model | 🟢 | Person/account split, spec §3 |
-| 1.2 | ⭐ Trader authentication | 🔴 | Registration, login, password reset, sessions, 2FA before payouts. **Not on the original module list** |
-| 1.3 | ⭐ Admin roles & permissions | 🔴 | Per module and per action; approval authority for payouts and KYC overrides. Enforced server-side |
-| 1.4 | ⭐ Audit logging | 🔴 | Actor, action, before/after, timestamp, reason. Immutable. Applied to every module built after this |
+| 1.1 | ⭐ Database schema & data model | 🟢 | **Built and migrated** — Person/account split, versioned Challenge Builder, spec §3 |
+| 1.2 | ⭐ Trader authentication | 🟢 | **Built** — registration, email verification, login/logout, password reset, lockout, optional TOTP 2FA. Email delivery still stubbed (dev console log) pending a provider decision (spec §4.5) |
+| 1.3 | ⭐ Admin roles & permissions | 🟢 | **Built** — six starting roles seeded as configurable data, server-side permission enforcement. Segregation-of-duties check (KYC reviewer ≠ payout approver) lands with the Phase 5 payout endpoint |
+| 1.4 | ⭐ Audit logging | 🟢 | **Built** — every auth action logged with actor/action/entity/reason/IP; table is append-only at the database level (Postgres trigger rejects UPDATE/DELETE), verified directly |
 | 1.5 | ⭐ Challenge Builder (configurable) | 🟡 | Phases as data, not code. See §2.1 |
 | 1.6 | ⭐ Challenge versioning | 🔴 | Editing creates a new version; live accounts stay pinned. **Not on the original list. Consumer-protection critical** |
 | 1.7 | Terms acceptance records | 🔴 | Which rulebook version was accepted, when, from what IP. Dispute evidence |

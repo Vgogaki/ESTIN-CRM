@@ -6,15 +6,19 @@ import { type ReactNode } from "react";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/pending-tasks", label: "Pending tasks" },
+  { href: "/admin/traders", label: "Traders" },
   { href: "/admin/challenge-types", label: "Challenge types" },
   { href: "/admin/test-tools", label: "Test tools" },
 ];
 
 export function AdminShell({
   admin,
+  pendingTaskCount = 0,
   children,
 }: {
   admin: { name: string; roleName: string };
+  pendingTaskCount?: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -47,7 +51,14 @@ export function AdminShell({
                     : "text-sub hover:bg-raise hover:text-ink"
                 }`}
               >
-                {item.label}
+                <span className="flex items-center justify-between">
+                  {item.label}
+                  {item.href === "/admin/pending-tasks" && pendingTaskCount > 0 && (
+                    <span className="rounded-full bg-danger-bg px-1.5 py-0.5 font-mono text-[10px] text-danger">
+                      {pendingTaskCount}
+                    </span>
+                  )}
+                </span>
               </Link>
             );
           })}
@@ -61,7 +72,7 @@ export function AdminShell({
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto p-8">
-        <div className="mx-auto max-w-4xl">{children}</div>
+        <div className="mx-auto max-w-5xl">{children}</div>
       </main>
     </div>
   );

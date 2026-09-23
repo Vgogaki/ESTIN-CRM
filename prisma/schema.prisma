@@ -72,6 +72,15 @@ enum AuthTokenPurpose {
   password_reset
 }
 
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+  partially_refunded
+  charged_back
+}
+
 // ---------------------------------------------------------------------------
 // Challenge Builder — rules live on versioned templates, never on accounts.
 // Editing a live template creates a new ChallengeType row (new version);
@@ -175,6 +184,8 @@ model Person {
   accounts        Account[]
   sessions        TraderSession[]
   termsAcceptance TermsAcceptance[]
+  notes           Note[]
+  payments        Payment[]
 
   @@index([email])
 }
@@ -213,9 +224,50 @@ model Account {
   equityTicks     EquityTick[]
   withdrawals     Withdrawal[]
   termsAcceptance TermsAcceptance[]
+  payments        Payment[]
 
   @@index([personId])
   @@index([challengeTypeId])
+}
+
+// One row per note logged against a person (call summary, breach detail,
+// payout decision context). Notes belong to the person, not an account —
+// matches "KYC belongs to the person" (CLAUDE.md).
+model Note {
+  id            String    @id @default(cuid())
+  personId      String
+  person        Person    @relation(fields: [personId], references: [id])
+  authorAdminId String
+  authorAdmin   AdminUser @relation(fields: [authorAdminId], references: [id])
+  text          String
+  createdAt     DateTime  @default(now())
+
+  @@index([personId])
+}
+
+// Money received against an order (spec §8.1). Status starts "succeeded"
+// because POST /api/v1/orders is only called after checkout confirms
+// payment — there is no real payment provider wired up yet (decision #5,
+// still open), so refund/chargeback status transitions aren't driven by a
+// real webhook yet either; the field exists so that plugging a provider in
+// later doesn't require a schema change.
+model Payment {
+  id                    String        @id @default(cuid())
+  personId              String
+  person                Person        @relation(fields: [personId], references: [id])
+  accountId             String
+  account               Account       @relation(fields: [accountId], references: [id])
+  orderRef              String        @unique
+  amountPaid            Decimal       @db.Decimal(14, 2)
+  currency              String
+  paymentProvider       String
+  providerTransactionId String?
+  affiliateCode         String?
+  status                PaymentStatus @default(succeeded)
+  createdAt             DateTime      @default(now())
+
+  @@index([personId])
+  @@index([accountId])
 }
 
 model EquityTick {
@@ -305,6 +357,7 @@ model AdminUser {
   sessions           AdminSession[]
   createdChallenges  ChallengeType[]
   decidedWithdrawals Withdrawal[]
+  notes              Note[]
 
   @@index([email])
 }

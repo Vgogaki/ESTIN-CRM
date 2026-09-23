@@ -110,13 +110,13 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 2.1 | ⭐ Order intake API | 🟢 | `POST /api/v1/orders`, idempotent on `order_ref` |
-| 2.2 | Payment integration | 🔴 | Provider selection, checkout, webhooks |
-| 2.3 | Refunds & chargebacks | 🔴 | Including account voiding on chargeback |
-| 2.4 | Purchase & payment history | 🟡 | Per person, linked to User 360 |
-| 2.5 | KYC collection & review | 🟡 | Statuses (Pending / Approved / Rejected / Further Review), manual review, vendor-agnostic interface |
+| 2.1 | ⭐ Order intake API | 🟢 | **Built** — `POST /api/v1/orders`, idempotent on `order_ref` (verified: replayed request returns the same account, concurrent double-submit handled via the DB unique constraint). Pins to the exact challenge type version shown at checkout. Detects same-email-different-name and flags `identityMismatch`. Gated on a single shared API key (`ORDERS_API_KEY`) until real per-integration key management exists (spec §5.7, not built) |
+| 2.2 | Payment integration | 🔴 | Provider selection, checkout, webhooks — blocked on decision #5 |
+| 2.3 | Refunds & chargebacks | 🔴 | Including account voiding on chargeback — blocked on decision #5 |
+| 2.4 | Purchase & payment history | 🟢 | **Built** — `Payment` record created per order, shown on the trader detail page |
+| 2.5 | KYC collection & review | 🟡 | Status set manually on the trader detail page (chips, person-level). Document upload/review screen (side-by-side documents, approve/reject with reason) not built — see 2.6 |
 | 2.6 | KYC document storage | 🔴 | Encryption at rest, access restriction, retention policy, erasure. **Not on the original list** |
-| 2.7 | Back-office trader management | 🟢 | Person-level records, account tabs, void-with-reason |
+| 2.7 | Back-office trader management | 🟢 | **Built** — Traders list (search, status filter, person-grouped with account pills), detail page (account tabs, live rule meters, manual status/phase/equity override with reason, KYC, notes, void-with-reason, identity-mismatch banner, payment history) |
 
 ### Phase 3 — Rules engine & platform integration
 
@@ -124,13 +124,13 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 3.1 | ⭐ Rules engine | 🟢 | Multi-phase, configurable. Needs a full automated test suite |
+| 3.1 | ⭐ Rules engine | 🟡 | **Core evaluation built** (`src/server/rules.ts`) — same breach/pass formulas as spec §4.2, with a full test suite (`rules.test.ts`): both drawdown types, daily/max loss at the exact limit, profit target with/without minimum trading days, combined conditions. What's missing for a real "engine": automatic transitions on breach/pass (still manual, via the trader detail override) and the equity feed to drive it (3.2/3.3) |
 | 3.2 | ⭐ Equity feed integration | 🟡 | `POST /accounts/{id}/equity`. **Depends on 3.3.** Demonstrated in the terminal prototype |
 | 3.3 | ⭐ Trading platform selection | 🔴 | Licence vs. build (spec §9). **Decision required; blocks 3.2** |
-| 3.4 | Breach & pass automation | 🟢 | Auto-close on breach; pass goes to review |
+| 3.4 | Breach & pass automation | 🟡 | Auto-close on breach; pass goes to review. Detection exists (3.1) and surfaces in the pending tasks queue (3.7); the automatic transition doesn't — currently a manual override, by design, until 3.2/3.3 land |
 | 3.5 | Time limits & account expiry | 🔴 | Needs a scheduled job, not just a date field |
 | 3.6 | Instrument restrictions | 🔴 | Enforced at order entry, which is platform-side |
-| 3.7 | Pending tasks queue | 🟢 | Derived automatically, not tracked by hand |
+| 3.7 | Pending tasks queue | 🟡 | **Partially built, pulled forward** — rule breaches, ready-to-pass, pass review, KYC submitted, funded-without-KYC and identity-mismatch all live at `/admin/pending-tasks`, verified end to end. Left out: pending withdrawals and breached-trader offer leads (Withdrawal/Offers have no UI yet — Phase 5/6-7) |
 
 ### Phase 4 — Trader portal
 

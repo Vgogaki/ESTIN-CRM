@@ -1,5 +1,6 @@
 import { getCurrentAdmin } from "@/server/auth/guard";
 import { AdminShell } from "@/components/admin-shell";
+import { getPendingTasks } from "@/server/pending-tasks";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await getCurrentAdmin();
@@ -8,5 +9,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // The actual auth requirement is still enforced by each protected page.
   if (!admin) return children;
 
-  return <AdminShell admin={{ name: admin.name, roleName: admin.role.name }}>{children}</AdminShell>;
+  const tasks = await getPendingTasks();
+
+  return (
+    <AdminShell admin={{ name: admin.name, roleName: admin.role.name }} pendingTaskCount={tasks.total}>
+      {children}
+    </AdminShell>
+  );
 }

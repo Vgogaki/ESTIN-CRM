@@ -22,11 +22,11 @@ export default async function TestToolsPage() {
     <div>
       <PageHeader title="Test tools" />
       <Alert tone="warning">
-        Phase 2 (order intake + payment) doesn&apos;t exist yet, so this is a stand-in for
-        creating an account: it grants a real Account row, pinned to the exact challenge type
-        version selected, and records a terms-acceptance entry — same as a real purchase will,
-        once the order flow is built. Every grant is logged in the audit trail as a manual test
-        grant, not a real purchase.
+        There is no real checkout yet — no payment provider is connected (decisions.md #5, still
+        open). This runs the exact same order-intake path checkout will (spec §8.1: creates the
+        Payment record, pins the account to the exact challenge type version, records terms
+        acceptance) using a synthetic order reference instead of a real payment webhook. Every
+        grant is logged in the audit trail as an admin-triggered test, not a real purchase.
       </Alert>
       <div className="mt-5">
         <GrantAccountForm options={publishedOptions} />

@@ -312,12 +312,13 @@ export default function TraderDetail({
                 </Alert>
               )}
 
-              {!account.voidedAt && account.rule && (account.rule.breachedDaily || account.rule.breachedTotal || account.rule.hitTarget) && (
+              {!account.voidedAt && account.phase === "evaluation" && account.rule &&
+                (account.rule.breachedDaily || account.rule.breachedTotal || account.rule.hitTarget) && (
                 <Alert tone={account.rule.breachedDaily || account.rule.breachedTotal ? "danger" : "success"}>
-                  {account.rule.breachedDaily && "Daily loss limit exceeded — eligible to mark Breached. "}
-                  {account.rule.breachedTotal && "Max loss limit exceeded — eligible to mark Breached. "}
+                  {account.rule.breachedDaily && "Daily loss limit exceeded — will auto-close on the next equity update. "}
+                  {account.rule.breachedTotal && "Max loss limit exceeded — will auto-close on the next equity update. "}
                   {account.rule.hitTarget && !account.rule.breachedDaily && !account.rule.breachedTotal &&
-                    "Profit target met with minimum trading days — eligible to pass."}
+                    "Profit target met with minimum trading days — will move to pass review on the next equity update."}
                 </Alert>
               )}
 
@@ -389,8 +390,9 @@ export default function TraderDetail({
                     <h2 className="font-display text-sm font-semibold">
                       Manual override
                       <span className="ml-2 font-sans text-xs font-normal text-sub">
-                        status, phase, and simulated equity — stands in for the rules engine and
-                        live feed until Phase 3
+                        simulated equity — stands in for the live feed. If the new numbers breach a
+                        limit or hit the target, status/phase update automatically; only set them
+                        yourself here to force something else (e.g. closing for an unrelated reason)
                       </span>
                     </h2>
                     {!overrideOpen && (

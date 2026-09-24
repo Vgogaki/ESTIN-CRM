@@ -73,3 +73,42 @@ export function evaluateAccount(input: RuleInputs): RuleEvaluation {
     hitTarget,
   };
 }
+
+export type AccountTransition = { kind: "breach" | "pass"; reason: string };
+
+/**
+ * Module 3.4 — "auto-close on breach; pass goes to review". Pure decision
+ * on top of evaluateAccount()'s pure math: no DB access here either, so it
+ * can be tested the same way. The caller (traders.ts) is responsible for
+ * only invoking this when the account is still active and in evaluation,
+ * and for actually applying the transition + audit log entry. Breach takes
+ * priority over a same-tick target hit — see the "combined conditions"
+ * tests above for why both can be true at once.
+ */
+export function determineAutoTransition(r: RuleEvaluation): AccountTransition | null {
+  if (r.breachedDaily && r.breachedTotal) {
+    return {
+      kind: "breach",
+      reason: `Daily loss limit breached (used ${r.dailyLossUsed.toString()} of ${r.dailyLossCap.toString()}) and maximum loss limit breached (used ${r.totalLossUsed.toString()} of ${r.maxLossCap.toString()}).`,
+    };
+  }
+  if (r.breachedDaily) {
+    return {
+      kind: "breach",
+      reason: `Daily loss limit breached: used ${r.dailyLossUsed.toString()} of ${r.dailyLossCap.toString()}.`,
+    };
+  }
+  if (r.breachedTotal) {
+    return {
+      kind: "breach",
+      reason: `Maximum loss limit breached: used ${r.totalLossUsed.toString()} of ${r.maxLossCap.toString()}.`,
+    };
+  }
+  if (r.hitTarget) {
+    return {
+      kind: "pass",
+      reason: `Profit target reached: pnl ${r.pnl.toString()} vs target ${r.profitTarget?.toString() ?? ""}.`,
+    };
+  }
+  return null;
+}

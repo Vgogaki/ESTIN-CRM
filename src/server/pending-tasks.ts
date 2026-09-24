@@ -5,11 +5,14 @@ import { evaluateAccount } from "@/server/rules";
  * The operations queue (spec §5.2, module 3.7) — everything waiting on
  * staff, derived automatically rather than tracked by hand. Full version
  * is Phase 3 (needs the rules engine and equity feed); this is what's
- * derivable now from data that already exists — breach/pass detection
- * runs the same evaluateAccount() math the real engine will, against
- * whatever equity values are on the account (manually set via "simulate
- * account state" until the real feed exists). Pending withdrawals and
- * breached-trader offer leads are left out — Withdrawal (Phase 5) and
+ * derivable now from data that already exists. `flagged` and `readyToPass`
+ * below are now mostly a safety net rather than the primary path: module
+ * 3.4 auto-transitions an account (out of active/evaluation) the moment a
+ * breach or pass is detected on an equity update, so these two buckets
+ * should normally stay empty and only catch something that was never run
+ * back through updateAccountState (e.g. data imported directly, or a
+ * phase's rules edited after the equity was last set). Pending withdrawals
+ * and breached-trader offer leads are left out — Withdrawal (Phase 5) and
  * Offers (Phase 6/7) don't have a UI yet to act on them from.
  */
 export async function getPendingTasks() {

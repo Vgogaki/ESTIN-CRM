@@ -2,6 +2,7 @@ import type { AccountPhase, AccountStatus, KycStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
+import { determineAutoTransition, evaluateAccount } from "@/server/rules";
 
 export async function listTraders(search?: string, statusFilter?: AccountStatus) {
   return db.person.findMany({
@@ -59,11 +60,19 @@ function serializeAccountState(a: { status: AccountStatus; phase: AccountPhase; 
 
 /**
  * Manual overrides of account state — status, phase, and the "simulate
- * account state" equity fields. Stands in for the automated rules engine
- * (Phase 3) and the real equity feed (blocked on the trading-platform
- * decision, spec §9); every override is logged as exactly that, with a
- * before/after diff, per modules-to-design.md §1.3 ("manual equity or
- * status overrides" is a sensitive action).
+ * account state" equity fields. Stands in for the real equity feed
+ * (blocked on the trading-platform decision, spec §9); every override is
+ * logged as exactly that, with a before/after diff, per
+ * modules-to-design.md §1.3 ("manual equity or status overrides" is a
+ * sensitive action).
+ *
+ * After the equity patch lands, this re-runs the same evaluateAccount()
+ * math the pending-tasks queue uses and applies module 3.4's automatic
+ * transition — "auto-close on breach; pass goes to review" — as a second,
+ * separately audited step (actorType "system"). It only fires when the
+ * admin didn't already set status/phase themselves in this same call, so
+ * an explicit decision (e.g. voiding for an unrelated reason) is never
+ * silently overwritten.
  */
 export async function updateAccountState(input: {
   accountId: string;
@@ -83,7 +92,10 @@ export async function updateAccountState(input: {
     throw new ValidationError("A reason is required for a manual override.");
   }
 
-  const before = await db.account.findUniqueOrThrow({ where: { id: input.accountId } });
+  const before = await db.account.findUniqueOrThrow({
+    where: { id: input.accountId },
+    include: { currentPhase: true, challengeType: true },
+  });
   const updated = await db.account.update({ where: { id: input.accountId }, data: input.patch });
 
   await writeAuditLog({
@@ -97,6 +109,54 @@ export async function updateAccountState(input: {
     reason: input.reason,
     ipAddress: input.ipAddress,
   });
+
+  const statusSetByAdmin = input.patch.status !== undefined && input.patch.status !== before.status;
+  const phaseSetByAdmin = input.patch.phase !== undefined && input.patch.phase !== before.phase;
+
+  if (
+    !statusSetByAdmin &&
+    !phaseSetByAdmin &&
+    before.status === "active" &&
+    before.phase === "evaluation" &&
+    before.currentPhase
+  ) {
+    const evalResult = evaluateAccount({
+      accountSize: before.challengeType.accountSize,
+      equity: updated.equity,
+      dayStartEquity: updated.dayStartEquity,
+      peakEquity: updated.peakEquity,
+      tradingDays: updated.tradingDays,
+      profitTargetPct: before.currentPhase.profitTargetPct,
+      dailyLossPct: before.currentPhase.dailyLossPct,
+      maxLossPct: before.currentPhase.maxLossPct,
+      drawdownType: before.currentPhase.drawdownType,
+      minTradingDays: before.currentPhase.minTradingDays,
+    });
+    const transition = determineAutoTransition(evalResult);
+
+    if (transition) {
+      const transitionPatch =
+        transition.kind === "breach"
+          ? { status: "breached" as const, phase: "closed" as const, endedAt: new Date(), closeReason: transition.reason }
+          : { phase: "pass_review" as const };
+
+      const final = await db.account.update({ where: { id: input.accountId }, data: transitionPatch });
+
+      await writeAuditLog({
+        actorType: "system",
+        actorId: null,
+        action: transition.kind === "breach" ? "account.auto_breached" : "account.auto_pass_review",
+        entityType: "Account",
+        entityId: input.accountId,
+        before: serializeAccountState(updated),
+        after: serializeAccountState(final),
+        reason: transition.reason,
+        ipAddress: input.ipAddress,
+      });
+
+      return final;
+    }
+  }
 
   return updated;
 }

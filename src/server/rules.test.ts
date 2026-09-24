@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { evaluateAccount, type RuleInputs } from "./rules";
+import { determineAutoTransition, evaluateAccount, type RuleInputs } from "./rules";
 
 const { Decimal } = Prisma;
 const d = (n: number) => new Decimal(n);
@@ -137,5 +137,62 @@ describe("evaluateAccount — combined conditions", () => {
     );
     expect(r.hitTarget).toBe(true);
     expect(r.breachedDaily).toBe(true);
+  });
+});
+
+describe("determineAutoTransition", () => {
+  it("returns null when nothing is breached or hit", () => {
+    const r = evaluateAccount(baseInputs({ equity: d(51000) }));
+    expect(determineAutoTransition(r)).toBeNull();
+  });
+
+  it("flags a breach on daily loss alone", () => {
+    const r = evaluateAccount(baseInputs({ equity: d(47000), dayStartEquity: d(50000) }));
+    const t = determineAutoTransition(r);
+    expect(t?.kind).toBe("breach");
+    expect(t?.reason).toContain("Daily loss limit breached");
+  });
+
+  it("flags a breach on max loss alone", () => {
+    const r = evaluateAccount(
+      baseInputs({ equity: d(49000), peakEquity: d(55000), drawdownType: "trailing" }),
+    );
+    const t = determineAutoTransition(r);
+    expect(t?.kind).toBe("breach");
+    expect(t?.reason).toContain("Maximum loss limit breached");
+  });
+
+  it("flags a combined breach with both reasons in the message", () => {
+    const r = evaluateAccount(
+      baseInputs({
+        equity: d(44000),
+        dayStartEquity: d(50000),
+        peakEquity: d(50000),
+        drawdownType: "trailing",
+      }),
+    );
+    const t = determineAutoTransition(r);
+    expect(t?.kind).toBe("breach");
+    expect(t?.reason).toContain("Daily loss limit breached");
+    expect(t?.reason).toContain("maximum loss limit breached");
+  });
+
+  it("flags a pass when the target is hit and not breached", () => {
+    const r = evaluateAccount(baseInputs({ equity: d(55000), tradingDays: 3 }));
+    const t = determineAutoTransition(r);
+    expect(t?.kind).toBe("pass");
+    expect(t?.reason).toContain("Profit target reached");
+  });
+
+  it("breach takes priority over a same-tick target hit", () => {
+    const r = evaluateAccount(
+      baseInputs({ equity: d(55000), dayStartEquity: d(58000), tradingDays: 5 }),
+    );
+    expect(determineAutoTransition(r)?.kind).toBe("breach");
+  });
+
+  it("does not flag a pass when the target is hit but minimum trading days are short", () => {
+    const r = evaluateAccount(baseInputs({ equity: d(56000), tradingDays: 2 }));
+    expect(determineAutoTransition(r)).toBeNull();
   });
 });

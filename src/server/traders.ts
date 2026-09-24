@@ -41,6 +41,7 @@ export async function getTraderDetail(personId: string) {
       },
       notes: { include: { authorAdmin: true }, orderBy: { createdAt: "desc" } },
       payments: { orderBy: { createdAt: "desc" } },
+      kycDocuments: { orderBy: { uploadedAt: "desc" } },
     },
   });
 }
@@ -135,10 +136,17 @@ export async function setKycStatus(input: {
   ipAddress: string;
   reason?: string;
 }) {
+  if (input.status === "rejected" && !input.reason?.trim()) {
+    throw new ValidationError("A reason is required when rejecting KYC — the trader sees it.");
+  }
+
   const before = await db.person.findUniqueOrThrow({ where: { id: input.personId } });
   const updated = await db.person.update({
     where: { id: input.personId },
-    data: { kycStatus: input.status },
+    data: {
+      kycStatus: input.status,
+      kycRejectionReason: input.status === "rejected" ? input.reason!.trim() : null,
+    },
   });
 
   await writeAuditLog({

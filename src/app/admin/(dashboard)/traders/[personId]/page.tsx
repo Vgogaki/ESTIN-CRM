@@ -85,6 +85,7 @@ export default async function TraderDetailPage({
           country: person.country,
           kycStatus: person.kycStatus,
           identityMismatch: person.identityMismatch,
+          kycRejectionReason: person.kycRejectionReason,
         }}
         accounts={accounts}
         notes={person.notes.map((n) => ({
@@ -100,6 +101,13 @@ export default async function TraderDetailPage({
           currency: p.currency,
           status: p.status,
           createdAt: p.createdAt.toISOString(),
+        }))}
+        kycDocuments={person.kycDocuments.map((d) => ({
+          id: d.id,
+          type: d.type,
+          originalName: d.originalName,
+          sizeBytes: d.sizeBytes,
+          uploadedAt: d.uploadedAt.toISOString(),
         }))}
       />
     </div>

@@ -81,6 +81,13 @@ enum PaymentStatus {
   charged_back
 }
 
+enum KycDocumentType {
+  identity_front
+  identity_back
+  proof_of_address
+  selfie
+}
+
 // ---------------------------------------------------------------------------
 // Challenge Builder — rules live on versioned templates, never on accounts.
 // Editing a live template creates a new ChallengeType row (new version);
@@ -161,9 +168,10 @@ model Person {
   email    String @unique
   country  String
 
-  kycStatus        KycStatus @default(not_started)
-  identityMismatch Boolean   @default(false)
-  marketingConsent Boolean   @default(false)
+  kycStatus          KycStatus @default(not_started)
+  kycRejectionReason String?
+  identityMismatch   Boolean   @default(false)
+  marketingConsent   Boolean   @default(false)
 
   passwordHash        String?
   emailVerifiedAt     DateTime?
@@ -186,6 +194,7 @@ model Person {
   termsAcceptance TermsAcceptance[]
   notes           Note[]
   payments        Payment[]
+  kycDocuments    KycDocument[]
 
   @@index([email])
 }
@@ -268,6 +277,27 @@ model Payment {
 
   @@index([personId])
   @@index([accountId])
+}
+
+// The row is metadata only — never the file itself. The actual bytes live
+// encrypted in KYC_STORAGE_DIR (see src/server/kyc-storage.ts), keyed by
+// storageKey; storing them in the database would put unencrypted-at-the-
+// column-level personal documents in ordinary DB backups and read
+// replicas. checksum is a SHA-256 of the plaintext, so a corrupted or
+// tampered file is detectable independent of decryption succeeding.
+model KycDocument {
+  id           String          @id @default(cuid())
+  personId     String
+  person       Person          @relation(fields: [personId], references: [id])
+  type         KycDocumentType
+  storageKey   String          @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  checksum     String
+  uploadedAt   DateTime        @default(now())
+
+  @@index([personId])
 }
 
 model EquityTick {

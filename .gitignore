@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local KYC document storage (encrypted, but still never belongs in git)
+/.kyc-storage/

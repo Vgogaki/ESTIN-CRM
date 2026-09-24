@@ -50,6 +50,20 @@ type Payment = {
   status: string;
   createdAt: string;
 };
+type KycDocument = {
+  id: string;
+  type: string;
+  originalName: string;
+  sizeBytes: number;
+  uploadedAt: string;
+};
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  identity_front: "Identity document (front)",
+  identity_back: "Identity document (back)",
+  proof_of_address: "Proof of address",
+  selfie: "Selfie",
+};
 
 type Props = {
   permissions: string[];
@@ -60,10 +74,12 @@ type Props = {
     country: string;
     kycStatus: "not_started" | "submitted" | "verified" | "rejected";
     identityMismatch: boolean;
+    kycRejectionReason: string | null;
   };
   accounts: Account[];
   notes: Note[];
   payments: Payment[];
+  kycDocuments: KycDocument[];
 };
 
 function money(value: string, currency: string) {
@@ -100,7 +116,14 @@ const STATUSES: Account["status"][] = ["active", "passed", "breached", "closed"]
 const PHASES: Account["phase"][] = ["evaluation", "pass_review", "funded", "closed"];
 const KYC_STATES = ["not_started", "submitted", "verified", "rejected"] as const;
 
-export default function TraderDetail({ permissions, person, accounts, notes, payments }: Props) {
+export default function TraderDetail({
+  permissions,
+  person,
+  accounts,
+  notes,
+  payments,
+  kycDocuments,
+}: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(accounts[0]?.id);
   const account = accounts.find((a) => a.id === selectedId) ?? accounts[0];
@@ -190,18 +213,38 @@ export default function TraderDetail({ permissions, person, accounts, notes, pay
 
   // KYC state
   const [kycSaving, setKycSaving] = useState(false);
-  async function setKyc(newStatus: (typeof KYC_STATES)[number]) {
+  const [kycError, setKycError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  async function setKyc(newStatus: (typeof KYC_STATES)[number], reason?: string) {
+    setKycError(null);
     setKycSaving(true);
     try {
-      await fetch(`/api/admin/traders/${person.id}/kyc`, {
+      const res = await fetch(`/api/admin/traders/${person.id}/kyc`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reason }),
       });
+      const data = await res.json();
+      if (!res.ok) {
+        setKycError(data.error ?? "Failed to update KYC status.");
+        return;
+      }
+      setRejecting(false);
+      setRejectReason("");
       router.refresh();
     } finally {
       setKycSaving(false);
     }
+  }
+
+  function onKycClick(k: (typeof KYC_STATES)[number]) {
+    if (k === "rejected") {
+      setRejecting(true);
+      return;
+    }
+    setKyc(k);
   }
 
   async function resolveIdentity() {
@@ -463,7 +506,7 @@ export default function TraderDetail({ permissions, person, accounts, notes, pay
             <button
               key={k}
               disabled={!canDecideKyc || kycSaving}
-              onClick={() => setKyc(k)}
+              onClick={() => onKycClick(k)}
               className={`rounded-md border px-3 py-1.5 text-sm capitalize disabled:cursor-not-allowed disabled:opacity-50 ${
                 person.kycStatus === k ? "border-acc bg-accbg text-acc" : "border-bd text-sub hover:text-ink"
               }`}
@@ -472,9 +515,69 @@ export default function TraderDetail({ permissions, person, accounts, notes, pay
             </button>
           ))}
         </div>
+        {rejecting && (
+          <div className="mt-3 flex flex-col gap-2">
+            <Input
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason — shown to the trader"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <Button
+                variant="danger"
+                disabled={rejectReason.trim().length < 4 || kycSaving}
+                onClick={() => setKyc("rejected", rejectReason.trim())}
+              >
+                Confirm reject
+              </Button>
+              <Button variant="ghost" onClick={() => setRejecting(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+        {kycError && (
+          <div className="mt-2">
+            <Alert tone="danger">{kycError}</Alert>
+          </div>
+        )}
+        {person.kycStatus === "rejected" && person.kycRejectionReason && (
+          <p className="mt-2 text-xs text-sub">Rejection reason shown to trader: {person.kycRejectionReason}</p>
+        )}
         <p className="mt-2 text-xs text-sub">
           KYC belongs to the person — set once, it applies to every account on this email.
         </p>
+
+        {kycDocuments.length > 0 && (
+          <div className="mt-4 border-t border-bd pt-4">
+            <h3 className="mb-2 text-xs font-medium tracking-wide text-sub uppercase">Documents</h3>
+            <div className="flex flex-col gap-1.5">
+              {kycDocuments.map((d) => (
+                <div key={d.id} className="flex items-center justify-between text-sm">
+                  <div>
+                    <p>{DOC_TYPE_LABELS[d.type] ?? d.type}</p>
+                    <p className="text-xs text-sub">
+                      {(d.sizeBytes / 1024).toFixed(0)} KB · {new Date(d.uploadedAt).toLocaleString()}
+                    </p>
+                  </div>
+                  {canDecideKyc ? (
+                    <a
+                      href={`/api/admin/kyc/documents/${d.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-acc hover:underline"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    <span className="text-xs text-sub">No permission to view</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card className="p-5">

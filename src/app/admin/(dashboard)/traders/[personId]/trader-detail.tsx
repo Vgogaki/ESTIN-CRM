@@ -28,6 +28,8 @@ type Account = {
   minTradingDays: number;
   drawdownType: string;
   equityTickCount: number;
+  timeLimitDays: number | null;
+  daysRemaining: number | null;
   rule: {
     pnl: string;
     profitTarget: string | null;
@@ -349,6 +351,16 @@ export default function TraderDetail({
                   <p className="text-xs text-sub uppercase">Phase</p>
                   <p className="capitalize">{account.phase.replace("_", " ")}</p>
                 </div>
+                {account.timeLimitDays !== null && (
+                  <div>
+                    <p className="text-xs text-sub uppercase">Time limit</p>
+                    <p className={account.daysRemaining !== null && account.daysRemaining <= 2 ? "text-danger" : ""}>
+                      {account.status === "active" && account.phase === "evaluation"
+                        ? `${account.daysRemaining} of ${account.timeLimitDays} day(s) left`
+                        : `${account.timeLimitDays} day(s)`}
+                    </p>
+                  </div>
+                )}
               </Card>
 
               {account.rule && (

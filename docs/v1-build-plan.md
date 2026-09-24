@@ -128,7 +128,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 | 3.2 | ⭐ Equity feed integration | 🟡 | `POST /accounts/{id}/equity`. **Depends on 3.3.** Demonstrated in the terminal prototype |
 | 3.3 | ⭐ Trading platform selection | 🔴 | Licence vs. build (spec §9). **Decision required; blocks 3.2** |
 | 3.4 | Breach & pass automation | 🟢 | **Built and verified live** — every time an admin updates an account's equity (standing in for the real feed), it's automatically re-evaluated: a breach closes the account (`status: breached`, `phase: closed`) and a passed target moves it to `pass_review`, each as its own audit entry (`actorType: system`, separate from the admin's own override entry). Explicitly setting status/phase in the same request is respected and skips the automation, so an admin's own decision (e.g. voiding for an unrelated reason) is never silently overwritten. Full test suite in `rules.test.ts` (`determineAutoTransition`) |
-| 3.5 | Time limits & account expiry | 🔴 | Needs a scheduled job, not just a date field |
+| 3.5 | Time limits & account expiry | 🟢 | **Built and verified live** — first use of pg-boss (added to the stack now that a module actually needs it): `src/instrumentation.ts` starts it when the server boots, scheduling a sweep every 15 minutes (`src/server/jobs/expire-accounts.ts`) that closes any active evaluation-phase account past its challenge phase's `timeLimitDays`, audit-logged like the 3.4 automation. Traders see remaining days on their dashboard; admins see it on the trader detail page. Deadline math is a pure, fully tested function (`src/server/expiry.ts`) |
 | 3.6 | Instrument restrictions | 🔴 | Enforced at order entry, which is platform-side |
 | 3.7 | Pending tasks queue | 🟡 | **Partially built, pulled forward** — rule breaches, ready-to-pass, pass review, KYC submitted, funded-without-KYC and identity-mismatch all live at `/admin/pending-tasks`, verified end to end. Left out: pending withdrawals and breached-trader offer leads (Withdrawal/Offers have no UI yet — Phase 5/6-7) |
 
@@ -137,7 +137,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 | # | Module | Status | Notes |
 |---|---|---|---|
 | 4.1 | Dashboard & objectives | 🟢 | Breach level shown in currency, not only % |
-| 4.2 | My plans / phase progression | 🟢 | Needs updating to the person-with-accounts model |
+| 4.2 | My plans / phase progression | 🟢 | **Updated** — the dashboard now lists the trader's actual accounts (challenge, size, status, phase, time remaining) instead of a hardcoded "no accounts yet" placeholder left over from before order intake existed. Still no rule meters on the trader side (admin-only for now, `/admin/traders/[person]`) |
 | 4.3 | KYC upload | 🟢 | **Built and verified live** — `/portal/kyc`, four document types (identity front/back, proof of address, selfie), JPEG/PNG/PDF up to 10MB, status badge, rejection reason shown with a prompt to re-upload |
 | 4.4 | Notifications centre | 🔴 | In-app list: passes, failures, phase changes, KYC, payouts, risk notices, offers, system messages |
 | 4.5 | Transactional email delivery | 🔴 | Sending service, deliverability, templates. **Not on the original list; the notifications centre needs a delivery mechanism behind it** |

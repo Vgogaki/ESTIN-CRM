@@ -3,6 +3,7 @@ import { getCurrentAdmin } from "@/server/auth/guard";
 import { hasPermission } from "@/server/permissions";
 import { getTraderDetail } from "@/server/traders";
 import { evaluateAccount } from "@/server/rules";
+import { daysRemaining } from "@/server/expiry";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import TraderDetail from "./trader-detail";
@@ -57,6 +58,14 @@ export default async function TraderDetailPage({
       minTradingDays: a.currentPhase?.minTradingDays ?? 0,
       drawdownType: a.currentPhase?.drawdownType ?? "trailing",
       equityTickCount: a.equityTicks.length,
+      timeLimitDays: a.currentPhase?.timeLimitDays ?? null,
+      daysRemaining: a.currentPhase
+        ? daysRemaining({
+            timeLimitDays: a.currentPhase.timeLimitDays,
+            phaseStartedAt: a.phaseStartedAt,
+            now: new Date(),
+          })
+        : null,
       rule: evalR
         ? {
             pnl: evalR.pnl.toString(),

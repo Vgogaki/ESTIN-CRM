@@ -23,6 +23,14 @@ with real quotes and a real hosting account.
   intended for production use as-is.
 - **`prisma/migrations/`** — the full migration history, applied with
   `prisma migrate deploy` (not `migrate dev`, which is interactive-only).
+- **Scheduled jobs (pg-boss)** — `src/instrumentation.ts` starts pg-boss
+  once when the server process boots (module 3.5, account expiry sweep
+  every 15 minutes; more jobs can register the same way later). pg-boss
+  manages its own schema in the same Postgres database on first start, so
+  the DB user in `DATABASE_URL` needs privileges to create it (`CREATE` on
+  the database), not just read/write on the app's own tables. Safe to run
+  from every replica if the app is ever scaled beyond one instance —
+  pg-boss's scheduling and job delivery are already designed for that.
 
 ## Required environment variables
 

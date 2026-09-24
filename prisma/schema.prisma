@@ -219,9 +219,15 @@ model Account {
   peakEquity     Decimal @db.Decimal(14, 2)
   tradingDays    Int     @default(0)
 
-  startedAt   DateTime  @default(now())
-  endedAt     DateTime?
-  closeReason String?
+  startedAt DateTime @default(now())
+  // When the account entered currentPhase — the clock a phase's timeLimitDays
+  // (module 3.5) counts from. Equal to startedAt at creation; would need
+  // updating alongside currentPhaseId on a real multi-phase advance, which
+  // isn't built yet (today's only phase transitions are pass_review/closed,
+  // neither of which changes currentPhaseId).
+  phaseStartedAt DateTime  @default(now())
+  endedAt        DateTime?
+  closeReason    String?
 
   voidedAt   DateTime?
   voidReason String?

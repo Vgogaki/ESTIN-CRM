@@ -114,8 +114,8 @@ Every module below is in scope for V1. Nothing is added after this point without
 | 2.2 | Payment integration | 🔴 | Provider selection, checkout, webhooks — blocked on decision #5 |
 | 2.3 | Refunds & chargebacks | 🔴 | Including account voiding on chargeback — blocked on decision #5 |
 | 2.4 | Purchase & payment history | 🟢 | **Built** — `Payment` record created per order, shown on the trader detail page |
-| 2.5 | KYC collection & review | 🟡 | Status set manually on the trader detail page (chips, person-level). Document upload/review screen (side-by-side documents, approve/reject with reason) not built — see 2.6 |
-| 2.6 | KYC document storage | 🔴 | Encryption at rest, access restriction, retention policy, erasure. **Not on the original list** |
+| 2.5 | KYC collection & review | 🟢 | **Built and verified live** — status chips on the trader detail page, a Documents list per person with working "View" links, and reject-with-reason (required, shown back to the trader, cleared on any status change or re-upload) |
+| 2.6 | KYC document storage | 🟡 | **Built and verified live** — AES-256-GCM encryption at rest (key from `KYC_ENCRYPTION_KEY`), storage abstracted behind `storeEncrypted`/`retrieveDecrypted`/`deleteStored` so a real object-storage vendor can be swapped in later, access restricted to admins with `kyc.view`, every document view separately audit-logged (`kyc_document.viewed`), GDPR erasure endpoint removes the file and DB row. Still open: object-storage vendor (currently local disk, `.kyc-storage/`) and retention/refresh period |
 | 2.7 | Back-office trader management | 🟢 | **Built** — Traders list (search, status filter, person-grouped with account pills), detail page (account tabs, live rule meters, manual status/phase/equity override with reason, KYC, notes, void-with-reason, identity-mismatch banner, payment history) |
 
 ### Phase 3 — Rules engine & platform integration
@@ -138,7 +138,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 |---|---|---|---|
 | 4.1 | Dashboard & objectives | 🟢 | Breach level shown in currency, not only % |
 | 4.2 | My plans / phase progression | 🟢 | Needs updating to the person-with-accounts model |
-| 4.3 | KYC upload | 🔴 | |
+| 4.3 | KYC upload | 🟢 | **Built and verified live** — `/portal/kyc`, four document types (identity front/back, proof of address, selfie), JPEG/PNG/PDF up to 10MB, status badge, rejection reason shown with a prompt to re-upload |
 | 4.4 | Notifications centre | 🔴 | In-app list: passes, failures, phase changes, KYC, payouts, risk notices, offers, system messages |
 | 4.5 | Transactional email delivery | 🔴 | Sending service, deliverability, templates. **Not on the original list; the notifications centre needs a delivery mechanism behind it** |
 | 4.6 | Support / messaging | 🔴 | Threads, statuses (Open / Awaiting Trader / Resolved), linked to User 360 |

@@ -12,7 +12,7 @@ type Props = {
   admin: { name: string; email: string; roleName: string; permissions: string[] };
 };
 
-export default function AdminDashboard({ admin }: Props) {
+export default function AdminAccount({ admin }: Props) {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function AdminDashboard({ admin }: Props) {
 
   return (
     <div>
-      <PageHeader title="Dashboard" subtitle={`Welcome back, ${admin.name}.`} />
+      <PageHeader title="Your account" backHref="/admin" backLabel="Dashboard" />
 
       <div className="grid gap-5 md:grid-cols-2">
         <Card className="p-5">

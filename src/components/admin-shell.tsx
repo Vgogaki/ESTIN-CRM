@@ -65,8 +65,10 @@ export function AdminShell({
           })}
         </nav>
         <div className="mt-auto border-t border-bd px-2 pt-3 text-xs">
-          <div className="text-ink">{admin.name}</div>
-          <div className="text-sub">{admin.roleName}</div>
+          <Link href="/admin/account" className="block hover:text-acc">
+            <div className="text-ink">{admin.name}</div>
+            <div className="text-sub">{admin.roleName}</div>
+          </Link>
           <button onClick={signOut} className="mt-2 text-sub underline hover:text-acc">
             Sign out
           </button>

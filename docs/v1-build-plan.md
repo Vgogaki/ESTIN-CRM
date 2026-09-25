@@ -99,7 +99,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 |---|---|---|---|
 | 1.1 | ⭐ Database schema & data model | 🟢 | **Built and migrated** — Person/account split, versioned Challenge Builder, spec §3 |
 | 1.2 | ⭐ Trader authentication | 🟢 | **Built** — registration, email verification, login/logout, password reset, lockout, TOTP 2FA. The 2FA enrollment UI (`/portal/security`) was added alongside module 5.1 — the server logic and API routes existed since Phase 1, but nothing had ever exposed them to a trader, so 2FA was effectively unreachable self-service until now. Email delivery still stubbed (dev console log) pending a provider decision (spec §4.5) |
-| 1.3 | ⭐ Admin roles & permissions | 🟢 | **Built** — six starting roles seeded as configurable data, server-side permission enforcement. Segregation-of-duties check (KYC reviewer ≠ payout approver) lands with the Phase 5 payout endpoint |
+| 1.3 | ⭐ Admin roles & permissions | 🟢 | **Built** — six starting roles seeded as configurable data, server-side permission enforcement. Segregation-of-duties check (KYC reviewer ≠ payout approver) is built and verified as part of the Phase 5 payout endpoint (5.2) |
 | 1.4 | ⭐ Audit logging | 🟢 | **Built** — every auth action logged with actor/action/entity/reason/IP; table is append-only at the database level (Postgres trigger rejects UPDATE/DELETE), verified directly |
 | 1.5 | ⭐ Challenge Builder (configurable) | 🟢 | **Built** — multi-phase builder with a live/draft distinction; back-office screens to create, edit and publish. Phases as data, not code. See §2.1 |
 | 1.6 | ⭐ Challenge versioning | 🟢 | **Built** — editing a type with zero accounts changes it in place; editing one with live accounts creates a new version and supersedes it, leaving existing accounts pinned to the old version. Automated test suite (`src/server/challenge-types.test.ts`) covers this directly, plus verified through the actual UI. Version history view shows a field-level diff between versions |
@@ -130,13 +130,13 @@ Every module below is in scope for V1. Nothing is added after this point without
 | 3.4 | Breach & pass automation | 🟢 | **Built and verified live** — every time an admin updates an account's equity (standing in for the real feed), it's automatically re-evaluated: a breach closes the account (`status: breached`, `phase: closed`) and a passed target moves it to `pass_review`, each as its own audit entry (`actorType: system`, separate from the admin's own override entry). Explicitly setting status/phase in the same request is respected and skips the automation, so an admin's own decision (e.g. voiding for an unrelated reason) is never silently overwritten. Full test suite in `rules.test.ts` (`determineAutoTransition`) |
 | 3.5 | Time limits & account expiry | 🟢 | **Built and verified live** — first use of pg-boss (added to the stack now that a module actually needs it): `src/instrumentation.ts` starts it when the server boots, scheduling a sweep every 15 minutes (`src/server/jobs/expire-accounts.ts`) that closes any active evaluation-phase account past its challenge phase's `timeLimitDays`, audit-logged like the 3.4 automation. Traders see remaining days on their dashboard; admins see it on the trader detail page. Deadline math is a pure, fully tested function (`src/server/expiry.ts`) |
 | 3.6 | Instrument restrictions | 🔴 | Enforced at order entry, which is platform-side |
-| 3.7 | Pending tasks queue | 🟡 | **Partially built, pulled forward** — rule breaches, ready-to-pass, pass review, KYC submitted, funded-without-KYC and identity-mismatch all live at `/admin/pending-tasks`, verified end to end. Left out: pending withdrawals and breached-trader offer leads (Withdrawal/Offers have no UI yet — Phase 5/6-7) |
+| 3.7 | Pending tasks queue | 🟡 | **Partially built, pulled forward** — rule breaches, ready-to-pass, pass review, KYC submitted, funded-without-KYC, identity-mismatch, and (since 5.1/5.2) pending payouts all live at `/admin/pending-tasks`, verified end to end. Left out: breached-trader offer leads (Offers has no UI yet — Phase 6/7) |
 
 ### Phase 4 — Trader portal
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 4.1 | Dashboard & objectives | 🟢 | Breach level shown in currency, not only % |
+| 4.1 | Dashboard & objectives | 🟡 | **Corrected — previous note was wrong.** The dashboard (`/portal`) shows account status, phase, time remaining and payout figures, but no rule meters — no daily loss, max loss or profit target, in currency or otherwise. The "breach level in currency" note describes the prototype, not what's built. Live rule tracking exists only on the admin side (`/admin/traders/[person]`); showing it to the trader is real remaining work, not a formatting detail |
 | 4.2 | My plans / phase progression | 🟢 | **Updated** — the dashboard now lists the trader's actual accounts (challenge, size, status, phase, time remaining) instead of a hardcoded "no accounts yet" placeholder left over from before order intake existed. Still no rule meters on the trader side (admin-only for now, `/admin/traders/[person]`) |
 | 4.3 | KYC upload | 🟢 | **Built and verified live** — `/portal/kyc`, four document types (identity front/back, proof of address, selfie), JPEG/PNG/PDF up to 10MB, status badge, rejection reason shown with a prompt to re-upload |
 | 4.4 | Notifications centre | 🟡 | **In-app list built and verified live** — `/portal/notifications`, read/unread state (unread badge in the nav, clears on visit), wired to every event this codebase currently produces: account created, breach, pass under review, time-limit expiry, KYC submitted/verified/rejected. Not wired: payouts, offers, competitions, risk notices, general system messages — none of those have a triggering event built yet either (Phase 5/6/7) |
@@ -162,7 +162,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 | # | Module | Status | Notes |
 |---|---|---|---|
 | 6.1 | Multiple-account detection | 🔴 | Linked by payment instrument, device, IP |
-| 6.2 | Duplicate / suspicious identity detection | 🟡 | Email/name mismatch already prototyped |
+| 6.2 | Duplicate / suspicious identity detection | 🟢 | **Corrected — understated as prototype-only.** Email/name mismatch is actually built and live: flagged automatically on a repeat order under an existing email with a different name (`src/server/orders.ts`), surfaced in the pending tasks queue and a banner on the trader detail page, with an admin "mark reviewed" action, all audit-logged. What's still genuinely missing from this module's title: detection *linked by payment instrument, device, or IP* — that's 6.1, still 🔴 |
 | 6.3 | Restricted-country controls | 🔴 | Admin-configurable list; block, or route to Pending Review |
 | 6.4 | Restricted-jurisdiction matrix | 🔴 | **Business task, not development.** Four separate inputs: sanctions, payment provider rules, data vendor licence terms, legal advice on marketing |
 | 6.5 | KYC country vs. IP / trading-location mismatch | 🔴 | |
@@ -237,7 +237,7 @@ Freezing scope here is the right call. The next step after freezing is **startin
 
 Still outstanding from the specification:
 
-1. Equity or balance for breach evaluation?
+1. Equity or balance for breach evaluation? **Flagging: the code has already committed to an answer, undecided only on paper.** Every money calculation built so far — the rules engine (`rules.ts`), the auto-transition logic (3.4), and the payout calculation (`withdrawals.ts`) — consistently uses **equity**, not balance, as the pnl/breach basis. That was a reasonable default (equity is the more conservative, real-time figure — it includes open positions, balance doesn't), but it was never explicitly asked and answered as a decision. Worth a deliberate yes/no before this goes further, since changing it later means revisiting three separate modules' math, not a config flip.
 2. Trading day rollover time and reference timezone?
 3. Maximum pass-review period (committed internally)?
 4. Trading platform: licence or build?

@@ -20,12 +20,12 @@
 | Architecture | One database and API; back office and trader portal are two front ends over it |
 | Build approach | AI-assisted build in Claude Code, with a contracted technical lead for setup, security review and ongoing support |
 | Scope | V1 frozen per `v1-build-plan.md` |
+| Breach evaluation basis | **Equity**, not balance (confirmed 25 Sept 2026 — industry norm, includes open positions). Already the basis for every money calculation built so far: the rules engine (`rules.ts`), the 3.4 auto-close/pass-review automation, and the payout calculation (`withdrawals.ts`). Was formerly open decision #1 below |
 
 ## Open: needs a decision
 
 | # | Question | Blocks |
 |---|---|---|
-| 1 | Does **equity** or **balance** trigger a breach? (Industry norm: equity) | Rules engine |
 | 2 | Trading-day rollover time and reference timezone | Daily loss, trading-day count |
 | 3 | Maximum pass-review period, committed internally | Pass workflow |
 | 4 | Trading platform: licence (DXtrade, TradeLocker, Match-Trader, TradeTech) or build | Equity feed, all end-to-end testing |

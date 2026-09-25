@@ -237,7 +237,7 @@ Freezing scope here is the right call. The next step after freezing is **startin
 
 Still outstanding from the specification:
 
-1. Equity or balance for breach evaluation? **Flagging: the code has already committed to an answer, undecided only on paper.** Every money calculation built so far — the rules engine (`rules.ts`), the auto-transition logic (3.4), and the payout calculation (`withdrawals.ts`) — consistently uses **equity**, not balance, as the pnl/breach basis. That was a reasonable default (equity is the more conservative, real-time figure — it includes open positions, balance doesn't), but it was never explicitly asked and answered as a decision. Worth a deliberate yes/no before this goes further, since changing it later means revisiting three separate modules' math, not a config flip.
+~~1. Equity or balance for breach evaluation?~~ **Decided 25 Sept 2026: equity.** See `docs/decisions.md`.
 2. Trading day rollover time and reference timezone?
 3. Maximum pass-review period (committed internally)?
 4. Trading platform: licence or build?

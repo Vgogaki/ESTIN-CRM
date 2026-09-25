@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
+import { Meter } from "@/components/ui/meter";
 import { hasPermission } from "@/server/permissions";
 
 type Account = {
@@ -37,6 +38,8 @@ type Account = {
     maxLossCap: string;
     dailyLossUsed: string;
     totalLossUsed: string;
+    dailyBreachLevel: string;
+    totalBreachLevel: string;
     breachedDaily: boolean;
     breachedTotal: boolean;
     hitTarget: boolean;
@@ -101,27 +104,6 @@ function money(value: string, currency: string) {
   } catch {
     return `${currency} ${n.toFixed(2)}`;
   }
-}
-
-function Meter({ label, used, limit, currency }: { label: string; used: string; limit: string; currency: string }) {
-  const pct = Math.min(100, (Number(used) / Math.max(Number(limit), 0.01)) * 100);
-  const danger = pct >= 100;
-  return (
-    <div>
-      <div className="mb-1 flex items-baseline justify-between text-xs">
-        <span className="text-sub">{label}</span>
-        <span className={danger ? "font-medium text-danger" : "font-medium"}>
-          {money(used, currency)} / {money(limit, currency)}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-raise">
-        <div
-          className={`h-full rounded-full ${danger ? "bg-danger" : "bg-acc"}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
 }
 
 const STATUSES: Account["status"][] = ["active", "passed", "breached", "closed"];
@@ -407,6 +389,10 @@ export default function TraderDetail({
                     />
                   </div>
                   <p className="mt-3 text-xs text-sub">
+                    Closes below {money(account.rule.dailyBreachLevel, account.currency)} today, or
+                    below {money(account.rule.totalBreachLevel, account.currency)} overall.
+                  </p>
+                  <p className="mt-1 text-xs text-sub">
                     Equity history: {account.equityTickCount} tick(s) recorded. Populates once a
                     trading platform feed is connected (spec §9, still open) — until then, use
                     &quot;simulate account state&quot; below.

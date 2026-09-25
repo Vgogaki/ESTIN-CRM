@@ -46,6 +46,37 @@ describe("evaluateAccount — daily loss", () => {
   });
 });
 
+describe("evaluateAccount — breach level in currency (spec §6.1)", () => {
+  it("daily breach level is day-start equity minus the daily cap", () => {
+    // 50000 day-start, 5% daily cap = 2500 -> closes below 47500.
+    const r = evaluateAccount(baseInputs({ equity: d(48000), dayStartEquity: d(50000) }));
+    expect(r.dailyBreachLevel.toNumber()).toBe(47500);
+  });
+
+  it("total breach level (trailing) is peak equity minus the max loss cap", () => {
+    // Peak 55000, 10% max loss cap = 5000 -> closes below 50000, not 45000.
+    const r = evaluateAccount(
+      baseInputs({ equity: d(52000), peakEquity: d(55000), drawdownType: "trailing" }),
+    );
+    expect(r.totalBreachLevel.toNumber()).toBe(50000);
+  });
+
+  it("total breach level (static) is account size minus the max loss cap, ignoring peak", () => {
+    // Peak reached 55000 but static drawdown floors at accountSize - cap: 50000 - 5000 = 45000.
+    const r = evaluateAccount(
+      baseInputs({ equity: d(48000), peakEquity: d(55000), drawdownType: "static" }),
+    );
+    expect(r.totalBreachLevel.toNumber()).toBe(45000);
+  });
+
+  it("equity at exactly the breach level is exactly when breachedDaily flips true", () => {
+    const equity = d(47500);
+    const r = evaluateAccount(baseInputs({ equity, dayStartEquity: d(50000) }));
+    expect(r.dailyBreachLevel.equals(equity)).toBe(true);
+    expect(r.breachedDaily).toBe(true);
+  });
+});
+
 describe("evaluateAccount — max loss, trailing drawdown", () => {
   it("measures from peak equity, not account size", () => {
     // Account grew to 55,000 (new peak), then dropped to 50,500.

@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Meter } from "@/components/ui/meter";
 import PayoutPanel from "./payout-panel";
 
 type Payout = {
@@ -19,17 +20,30 @@ type Withdrawal = {
   requestedAt: string;
   decisionNote: string | null;
 };
+type Rule = {
+  pnl: string;
+  profitTarget: string | null;
+  dailyLossCap: string;
+  maxLossCap: string;
+  dailyLossUsed: string;
+  totalLossUsed: string;
+  dailyBreachLevel: string;
+  totalBreachLevel: string;
+};
 
 type Account = {
   id: string;
   challengeTypeName: string;
   accountSize: string;
   currency: string;
+  equity: string;
   status: "active" | "passed" | "breached" | "closed";
   phase: "evaluation" | "pass_review" | "funded" | "closed";
   phaseLabel: string | null;
   closeReason: string | null;
   daysRemaining: number | null;
+  drawdownType: string;
+  rule: Rule | null;
   payout: Payout | null;
   withdrawals: Withdrawal[];
 };
@@ -70,6 +84,18 @@ function AccountCard({ account }: { account: Account }) {
           <span className="text-sub">Phase</span>
           <span className="capitalize">{account.phaseLabel ?? account.phase.replace("_", " ")}</span>
         </div>
+        <div className="flex justify-between">
+          <span className="text-sub">Equity</span>
+          <span>{money(account.equity, account.currency)}</span>
+        </div>
+        {account.rule && (
+          <div className="flex justify-between">
+            <span className="text-sub">P&amp;L since start</span>
+            <span className={Number(account.rule.pnl) < 0 ? "text-danger" : "text-success"}>
+              {money(account.rule.pnl, account.currency)}
+            </span>
+          </div>
+        )}
         {account.status === "active" && account.phase === "evaluation" && account.daysRemaining !== null && (
           <div className="flex justify-between">
             <span className="text-sub">Time remaining</span>
@@ -80,6 +106,37 @@ function AccountCard({ account }: { account: Account }) {
         )}
         {account.closeReason && <p className="mt-1 text-xs text-sub">{account.closeReason}</p>}
       </div>
+      {account.rule && (
+        <div className="mt-3 border-t border-bd pt-3">
+          <p className="mb-2 text-xs font-medium tracking-wide text-sub uppercase">Objectives</p>
+          <div className="flex flex-col gap-3">
+            {account.rule.profitTarget && (
+              <Meter
+                label="Profit target"
+                used={Math.max(0, Number(account.rule.pnl)).toString()}
+                limit={account.rule.profitTarget}
+                currency={account.currency}
+              />
+            )}
+            <Meter
+              label="Daily loss used"
+              used={account.rule.dailyLossUsed}
+              limit={account.rule.dailyLossCap}
+              currency={account.currency}
+            />
+            <Meter
+              label={`Max loss (${account.drawdownType})`}
+              used={account.rule.totalLossUsed}
+              limit={account.rule.maxLossCap}
+              currency={account.currency}
+            />
+          </div>
+          <p className="mt-2 text-xs text-sub">
+            Closes below {money(account.rule.dailyBreachLevel, account.currency)} today, or below{" "}
+            {money(account.rule.totalBreachLevel, account.currency)} overall.
+          </p>
+        </div>
+      )}
       {account.payout && (
         <PayoutPanel
           accountId={account.id}

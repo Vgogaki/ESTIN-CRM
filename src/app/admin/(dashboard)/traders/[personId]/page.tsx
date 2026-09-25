@@ -74,6 +74,8 @@ export default async function TraderDetailPage({
             maxLossCap: evalR.maxLossCap.toString(),
             dailyLossUsed: evalR.dailyLossUsed.toString(),
             totalLossUsed: evalR.totalLossUsed.toString(),
+            dailyBreachLevel: evalR.dailyBreachLevel.toString(),
+            totalBreachLevel: evalR.totalBreachLevel.toString(),
             breachedDaily: evalR.breachedDaily,
             breachedTotal: evalR.breachedTotal,
             hitTarget: evalR.hitTarget,

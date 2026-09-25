@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { getCurrentTrader } from "@/server/auth/guard";
 import { getTraderAccounts } from "@/server/portal-dashboard";
 import { daysRemaining } from "@/server/expiry";
+import { evaluateAccount } from "@/server/rules";
 import { calculateAvailableProfit, calculatePayoutAmount } from "@/server/withdrawals";
 import TraderDashboard from "./trader-dashboard";
 
@@ -58,11 +59,31 @@ export default async function PortalPage() {
           };
         }
 
+        // Spec §6.1: three meters mirroring the engine exactly, plus the
+        // breach level as a currency amount — only meaningful while the
+        // account is still being evaluated against these rules.
+        const rule =
+          a.phase === "evaluation" && a.currentPhase
+            ? evaluateAccount({
+                accountSize: a.challengeType.accountSize,
+                equity: a.equity,
+                dayStartEquity: a.dayStartEquity,
+                peakEquity: a.peakEquity,
+                tradingDays: a.tradingDays,
+                profitTargetPct: a.currentPhase.profitTargetPct,
+                dailyLossPct: a.currentPhase.dailyLossPct,
+                maxLossPct: a.currentPhase.maxLossPct,
+                drawdownType: a.currentPhase.drawdownType,
+                minTradingDays: a.currentPhase.minTradingDays,
+              })
+            : null;
+
         return {
           id: a.id,
           challengeTypeName: a.challengeType.name,
           accountSize: a.challengeType.accountSize.toString(),
           currency: a.challengeType.currency,
+          equity: a.equity.toString(),
           status: a.status,
           phase: a.phase,
           phaseLabel: a.currentPhase?.label ?? null,
@@ -73,6 +94,19 @@ export default async function PortalPage() {
                 phaseStartedAt: a.phaseStartedAt,
                 now,
               })
+            : null,
+          drawdownType: a.currentPhase?.drawdownType ?? "trailing",
+          rule: rule
+            ? {
+                pnl: rule.pnl.toString(),
+                profitTarget: rule.profitTarget?.toString() ?? null,
+                dailyLossCap: rule.dailyLossCap.toString(),
+                maxLossCap: rule.maxLossCap.toString(),
+                dailyLossUsed: rule.dailyLossUsed.toString(),
+                totalLossUsed: rule.totalLossUsed.toString(),
+                dailyBreachLevel: rule.dailyBreachLevel.toString(),
+                totalBreachLevel: rule.totalBreachLevel.toString(),
+              }
             : null,
           payout,
           withdrawals: a.withdrawals.map((w) => ({

@@ -31,6 +31,13 @@ export type RuleEvaluation = {
   maxLossCap: D;
   dailyLossUsed: D;
   totalLossUsed: D;
+  // The actual equity level that triggers each breach, not just a used/cap
+  // pair — spec §6.1: "state the breach level as a currency amount, not
+  // only a percentage... showing 'account closes below $47,500' prevents
+  // arguments that percentages do not." Can't go below zero the same way
+  // used/cap can't, since a cap is always a fraction of a positive size.
+  dailyBreachLevel: D;
+  totalBreachLevel: D;
   breachedDaily: boolean;
   breachedTotal: boolean;
   hitTarget: boolean;
@@ -53,6 +60,12 @@ export function evaluateAccount(input: RuleInputs): RuleEvaluation {
       ? max0(input.peakEquity.minus(input.equity))
       : max0(input.accountSize.minus(input.equity));
 
+  const dailyBreachLevel = input.dayStartEquity.minus(dailyLossCap);
+  const totalBreachLevel =
+    input.drawdownType === "trailing"
+      ? input.peakEquity.minus(maxLossCap)
+      : input.accountSize.minus(maxLossCap);
+
   const breachedDaily = dailyLossUsed.greaterThanOrEqualTo(dailyLossCap);
   const breachedTotal = totalLossUsed.greaterThanOrEqualTo(maxLossCap);
   const hitTarget = Boolean(
@@ -68,6 +81,8 @@ export function evaluateAccount(input: RuleInputs): RuleEvaluation {
     maxLossCap,
     dailyLossUsed,
     totalLossUsed,
+    dailyBreachLevel,
+    totalBreachLevel,
     breachedDaily,
     breachedTotal,
     hitTarget,

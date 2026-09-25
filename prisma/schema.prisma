@@ -103,6 +103,9 @@ enum NotificationType {
   kyc_submitted
   kyc_verified
   kyc_rejected
+  payout_requested
+  payout_approved
+  payout_declined
 }
 
 model Notification {
@@ -363,7 +366,11 @@ model Withdrawal {
   splitPct  Decimal          @db.Decimal(5, 2)
   amount    Decimal          @db.Decimal(14, 2)
   method    String?
-  status    WithdrawalStatus @default(pending)
+  // Payout rail reference (module 5.3, not built — blocked on a payout
+  // provider decision, docs/decisions.md #7). Nullable and unused until
+  // then, same forward-compatible pattern as Payment.providerTransactionId.
+  providerReference String?
+  status            WithdrawalStatus @default(pending)
 
   requestedAt  DateTime   @default(now())
   decidedById  String?

@@ -38,6 +38,7 @@ export async function getTraderDetail(personId: string) {
           challengeType: true,
           currentPhase: true,
           equityTicks: { orderBy: { timestamp: "desc" }, take: 20 },
+          withdrawals: { orderBy: { requestedAt: "desc" } },
         },
         orderBy: { createdAt: "desc" },
       },

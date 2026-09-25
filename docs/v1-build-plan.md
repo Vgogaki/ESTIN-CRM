@@ -98,7 +98,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 | # | Module | Status | Notes |
 |---|---|---|---|
 | 1.1 | ⭐ Database schema & data model | 🟢 | **Built and migrated** — Person/account split, versioned Challenge Builder, spec §3 |
-| 1.2 | ⭐ Trader authentication | 🟢 | **Built** — registration, email verification, login/logout, password reset, lockout, optional TOTP 2FA. Email delivery still stubbed (dev console log) pending a provider decision (spec §4.5) |
+| 1.2 | ⭐ Trader authentication | 🟢 | **Built** — registration, email verification, login/logout, password reset, lockout, TOTP 2FA. The 2FA enrollment UI (`/portal/security`) was added alongside module 5.1 — the server logic and API routes existed since Phase 1, but nothing had ever exposed them to a trader, so 2FA was effectively unreachable self-service until now. Email delivery still stubbed (dev console log) pending a provider decision (spec §4.5) |
 | 1.3 | ⭐ Admin roles & permissions | 🟢 | **Built** — six starting roles seeded as configurable data, server-side permission enforcement. Segregation-of-duties check (KYC reviewer ≠ payout approver) lands with the Phase 5 payout endpoint |
 | 1.4 | ⭐ Audit logging | 🟢 | **Built** — every auth action logged with actor/action/entity/reason/IP; table is append-only at the database level (Postgres trigger rejects UPDATE/DELETE), verified directly |
 | 1.5 | ⭐ Challenge Builder (configurable) | 🟢 | **Built** — multi-phase builder with a live/draft distinction; back-office screens to create, edit and publish. Phases as data, not code. See §2.1 |
@@ -147,10 +147,10 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 5.1 | Payout request flow | 🟢 | Gated on funded phase and verified KYC, server-side |
-| 5.2 | Approval workflow | 🟢 | Segregation of duties: reviewer ≠ approver |
-| 5.3 | Payout rails integration | 🔴 | Provider selection |
-| 5.4 | Payout ledger & history | 🟡 | |
+| 5.1 | Payout request flow | 🟢 | **Built and verified live** (previous 🟢 mark was stale — the flow didn't actually exist in code before this pass; corrected here). `POST /api/portal/withdrawals`, server-side gated on funded phase, verified KYC, two-factor authentication, and available profit (spec §8.4) — the UI gate is convenience only. Amount = (equity − account size − profit already reserved by a pending/approved/paid request) × profit split %, all `Decimal`, fully unit-tested (`withdrawals.test.ts`) |
+| 5.2 | Approval workflow | 🟢 | **Built and verified live** (same stale-mark correction as 5.1). `PATCH /api/admin/withdrawals/[id]`, approve/decline with a required reason on decline. Segregation of duties enforced server-side: an admin who reviewed a trader's KYC (looked up from the audit log) cannot also approve that trader's payout — verified directly, blocked with a clear message, no audit entry written for the blocked attempt. Optional four-eyes approval above a threshold (modules-to-design.md §1.3) is **not built** — no threshold has been decided |
+| 5.3 | Payout rails integration | 🔴 | Provider selection. `Withdrawal.providerReference` added now so the column exists when a rail is chosen, same pattern as `Payment.providerTransactionId` |
+| 5.4 | Payout ledger & history | 🟢 | **Built and verified live** — `/admin/withdrawals` (queue with trader, country, account size, profit, split %, amount, KYC status, decision actions, per spec §5.4), payout history on the trader detail page, and payout history + live "profit/split/amount" figures on the trader's own dashboard (spec §6.3). The "consistency rule check" spec mentions alongside this isn't shown — it needs per-trading-day equity history that doesn't exist yet (blocked on 3.2/3.3, the equity feed) |
 | 5.5 | Finance reporting & export | 🔴 | Revenue recognition of fees to be agreed with your accountant. **Not on the original list** |
 
 ### Phase 6 — Risk & jurisdiction

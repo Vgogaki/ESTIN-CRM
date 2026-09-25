@@ -8,6 +8,7 @@ const NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/pending-tasks", label: "Pending tasks" },
   { href: "/admin/traders", label: "Traders" },
+  { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/challenge-types", label: "Challenge types" },
   { href: "/admin/test-tools", label: "Test tools" },
 ];

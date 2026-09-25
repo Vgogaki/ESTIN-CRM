@@ -59,6 +59,15 @@ type KycDocument = {
   sizeBytes: number;
   uploadedAt: string;
 };
+type WithdrawalSummary = {
+  id: string;
+  challengeTypeName: string;
+  amount: string;
+  currency: string;
+  status: "pending" | "approved" | "declined" | "paid";
+  requestedAt: string;
+  decisionNote: string | null;
+};
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   identity_front: "Identity document (front)",
@@ -82,6 +91,7 @@ type Props = {
   notes: Note[];
   payments: Payment[];
   kycDocuments: KycDocument[];
+  withdrawals: WithdrawalSummary[];
 };
 
 function money(value: string, currency: string) {
@@ -118,6 +128,13 @@ const STATUSES: Account["status"][] = ["active", "passed", "breached", "closed"]
 const PHASES: Account["phase"][] = ["evaluation", "pass_review", "funded", "closed"];
 const KYC_STATES = ["not_started", "submitted", "verified", "rejected"] as const;
 
+const WITHDRAWAL_STATUS_TONE: Record<WithdrawalSummary["status"], "success" | "danger" | "neutral"> = {
+  pending: "neutral",
+  approved: "success",
+  declined: "danger",
+  paid: "success",
+};
+
 export default function TraderDetail({
   permissions,
   person,
@@ -125,6 +142,7 @@ export default function TraderDetail({
   notes,
   payments,
   kycDocuments,
+  withdrawals,
 }: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(accounts[0]?.id);
@@ -607,6 +625,31 @@ export default function TraderDetail({
                   <p>{money(p.amountPaid, p.currency)}</p>
                 </div>
                 <Badge tone={p.status === "succeeded" ? "success" : "neutral"}>{p.status}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-3 font-display text-sm font-semibold">Payout history</h2>
+        {withdrawals.length === 0 ? (
+          <p className="text-sm text-sub">No payout requests.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {withdrawals.map((w) => (
+              <div key={w.id} className="flex flex-col gap-0.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p>{w.challengeTypeName}</p>
+                    <p className="text-xs text-sub">{new Date(w.requestedAt).toLocaleString()}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>{money(w.amount, w.currency)}</span>
+                    <Badge tone={WITHDRAWAL_STATUS_TONE[w.status]}>{w.status}</Badge>
+                  </div>
+                </div>
+                {w.decisionNote && <p className="text-xs text-sub">{w.decisionNote}</p>}
               </div>
             ))}
           </div>

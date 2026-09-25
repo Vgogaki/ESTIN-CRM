@@ -11,9 +11,9 @@ import { evaluateAccount } from "@/server/rules";
  * breach or pass is detected on an equity update, so these two buckets
  * should normally stay empty and only catch something that was never run
  * back through updateAccountState (e.g. data imported directly, or a
- * phase's rules edited after the equity was last set). Pending withdrawals
- * and breached-trader offer leads are left out — Withdrawal (Phase 5) and
- * Offers (Phase 6/7) don't have a UI yet to act on them from.
+ * phase's rules edited after the equity was last set). Breached-trader
+ * offer leads are left out — Offers (Phase 6/7) has no UI yet to act on
+ * them from.
  */
 export async function getPendingTasks() {
   const activeAccounts = await db.account.findMany({
@@ -42,7 +42,7 @@ export async function getPendingTasks() {
     else if (r.hitTarget) readyToPass.push(acct);
   }
 
-  const [passReview, kycSubmitted, fundedAccounts, identityFlags] = await Promise.all([
+  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals] = await Promise.all([
     db.account.findMany({
       where: { phase: "pass_review", voidedAt: null },
       include: { person: true, challengeType: true },
@@ -53,6 +53,10 @@ export async function getPendingTasks() {
       include: { person: true, challengeType: true },
     }),
     db.person.findMany({ where: { identityMismatch: true, voidedAt: null } }),
+    db.withdrawal.findMany({
+      where: { status: "pending" },
+      include: { account: { include: { person: true, challengeType: true } } },
+    }),
   ]);
 
   const fundedWithoutKyc = fundedAccounts.filter((a) => a.person.kycStatus !== "verified");
@@ -63,7 +67,17 @@ export async function getPendingTasks() {
     passReview.length +
     kycSubmitted.length +
     fundedWithoutKyc.length +
-    identityFlags.length;
+    identityFlags.length +
+    pendingWithdrawals.length;
 
-  return { flagged, readyToPass, passReview, kycSubmitted, fundedWithoutKyc, identityFlags, total };
+  return {
+    flagged,
+    readyToPass,
+    passReview,
+    kycSubmitted,
+    fundedWithoutKyc,
+    identityFlags,
+    pendingWithdrawals,
+    total,
+  };
 }

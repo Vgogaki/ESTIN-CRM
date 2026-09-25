@@ -132,6 +132,17 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Payouts pending decision" count={tasks.pendingWithdrawals.length}>
+        {tasks.pendingWithdrawals.map((w) => (
+          <TaskRow
+            key={w.id}
+            href="/admin/withdrawals"
+            title={w.account.person.fullName}
+            note={`${w.amount.toString()} ${w.account.challengeType.currency}`}
+          />
+        ))}
+      </TaskBlock>
+
       {tasks.total === 0 && (
         <Card className="p-8 text-center text-sm text-sub">
           Nothing pending. Tasks will appear here as traders register, purchase and progress.

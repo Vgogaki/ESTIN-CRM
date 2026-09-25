@@ -3,6 +3,22 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import PayoutPanel from "./payout-panel";
+
+type Payout = {
+  profit: string;
+  splitPct: string;
+  amount: string;
+  canRequest: boolean;
+  blockedReason: string | null;
+};
+type Withdrawal = {
+  id: string;
+  amount: string;
+  status: "pending" | "approved" | "declined" | "paid";
+  requestedAt: string;
+  decisionNote: string | null;
+};
 
 type Account = {
   id: string;
@@ -14,6 +30,8 @@ type Account = {
   phaseLabel: string | null;
   closeReason: string | null;
   daysRemaining: number | null;
+  payout: Payout | null;
+  withdrawals: Withdrawal[];
 };
 
 type Props = {
@@ -62,6 +80,14 @@ function AccountCard({ account }: { account: Account }) {
         )}
         {account.closeReason && <p className="mt-1 text-xs text-sub">{account.closeReason}</p>}
       </div>
+      {account.payout && (
+        <PayoutPanel
+          accountId={account.id}
+          currency={account.currency}
+          payout={account.payout}
+          withdrawals={account.withdrawals}
+        />
+      )}
     </Card>
   );
 }
@@ -105,11 +131,16 @@ export default function TraderDashboard({ trader, accounts }: Props) {
             </dd>
           </div>
         </dl>
-        <Link href="/portal/kyc">
-          <Button variant="ghost" className="mt-4">
-            {trader.kycStatus === "not_started" ? "Upload verification documents" : "Manage KYC documents"}
-          </Button>
-        </Link>
+        <div className="mt-4 flex gap-2">
+          <Link href="/portal/kyc">
+            <Button variant="ghost">
+              {trader.kycStatus === "not_started" ? "Upload verification documents" : "Manage KYC documents"}
+            </Button>
+          </Link>
+          <Link href="/portal/security">
+            <Button variant="ghost">{trader.twoFactorEnabled ? "Manage security" : "Set up two-factor authentication"}</Button>
+          </Link>
+        </div>
       </Card>
       <div className="mt-6 flex flex-col gap-3">
         <h2 className="font-display text-sm font-semibold">Your challenges</h2>

@@ -118,6 +118,17 @@ export default async function TraderDetailPage({
           sizeBytes: d.sizeBytes,
           uploadedAt: d.uploadedAt.toISOString(),
         }))}
+        withdrawals={person.accounts.flatMap((a) =>
+          a.withdrawals.map((w) => ({
+            id: w.id,
+            challengeTypeName: a.challengeType.name,
+            amount: w.amount.toString(),
+            currency: a.challengeType.currency,
+            status: w.status,
+            requestedAt: w.requestedAt.toISOString(),
+            decisionNote: w.decisionNote,
+          })),
+        )}
       />
     </div>
   );

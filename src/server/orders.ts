@@ -3,6 +3,7 @@ import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { CURRENT_TERMS_VERSION } from "@/server/terms";
 import { notifyTrader } from "@/server/notifications";
+import { tryRedeemOffer } from "@/server/offers";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -18,6 +19,7 @@ export type CreateOrderInput = {
   currency: string;
   paymentProvider: string;
   affiliateCode?: string | null;
+  offerCode?: string | null;
   ipAddress: string;
 };
 
@@ -143,7 +145,18 @@ export async function createOrder(input: CreateOrderInput) {
       link: "/portal",
     });
 
-    return { account, replay: false as const, identityMismatch };
+    let offerRedeemed = false;
+    if (input.offerCode) {
+      const result = await tryRedeemOffer({
+        personId: person.id,
+        offerCode: input.offerCode,
+        orderRef: input.orderRef,
+        ipAddress: input.ipAddress,
+      });
+      offerRedeemed = result.redeemed;
+    }
+
+    return { account, replay: false as const, identityMismatch, offerRedeemed };
   } catch (err) {
     // Race: two requests with the same order_ref arrived concurrently and
     // both passed the pre-check above. The unique constraint on orderRef

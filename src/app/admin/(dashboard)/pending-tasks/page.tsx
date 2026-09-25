@@ -132,6 +132,17 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Breached traders awaiting a re-purchase offer" count={tasks.offerLeads.length}>
+        {tasks.offerLeads.map((a) => (
+          <TaskRow
+            key={a.personId}
+            href="/admin/offers"
+            title={a.person.fullName}
+            note="No offer sent"
+          />
+        ))}
+      </TaskBlock>
+
       <TaskBlock title="Payouts pending decision" count={tasks.pendingWithdrawals.length}>
         {tasks.pendingWithdrawals.map((w) => (
           <TaskRow

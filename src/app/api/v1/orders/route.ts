@@ -16,6 +16,7 @@ const schema = z.object({
   currency: z.string().length(3),
   payment_provider: z.string().min(1),
   affiliate_code: z.string().nullable().optional(),
+  offer_code: z.string().nullable().optional(),
 });
 
 /**
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
       currency: body.currency,
       paymentProvider: body.payment_provider,
       affiliateCode: body.affiliate_code,
+      offerCode: body.offer_code,
       ipAddress: await requestIp(),
     });
 

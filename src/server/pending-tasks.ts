@@ -1,5 +1,6 @@
 import { db } from "@/server/db";
 import { evaluateAccount } from "@/server/rules";
+import { getEligibleBreachedTraders } from "@/server/offers";
 
 /**
  * The operations queue (spec §5.2, module 3.7) — everything waiting on
@@ -11,9 +12,7 @@ import { evaluateAccount } from "@/server/rules";
  * breach or pass is detected on an equity update, so these two buckets
  * should normally stay empty and only catch something that was never run
  * back through updateAccountState (e.g. data imported directly, or a
- * phase's rules edited after the equity was last set). Breached-trader
- * offer leads are left out — Offers (Phase 6/7) has no UI yet to act on
- * them from.
+ * phase's rules edited after the equity was last set).
  */
 export async function getPendingTasks() {
   const activeAccounts = await db.account.findMany({
@@ -42,22 +41,24 @@ export async function getPendingTasks() {
     else if (r.hitTarget) readyToPass.push(acct);
   }
 
-  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals] = await Promise.all([
-    db.account.findMany({
-      where: { phase: "pass_review", voidedAt: null },
-      include: { person: true, challengeType: true },
-    }),
-    db.person.findMany({ where: { kycStatus: "submitted", voidedAt: null } }),
-    db.account.findMany({
-      where: { phase: "funded", voidedAt: null },
-      include: { person: true, challengeType: true },
-    }),
-    db.person.findMany({ where: { identityMismatch: true, voidedAt: null } }),
-    db.withdrawal.findMany({
-      where: { status: "pending" },
-      include: { account: { include: { person: true, challengeType: true } } },
-    }),
-  ]);
+  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals, offerLeads] =
+    await Promise.all([
+      db.account.findMany({
+        where: { phase: "pass_review", voidedAt: null },
+        include: { person: true, challengeType: true },
+      }),
+      db.person.findMany({ where: { kycStatus: "submitted", voidedAt: null } }),
+      db.account.findMany({
+        where: { phase: "funded", voidedAt: null },
+        include: { person: true, challengeType: true },
+      }),
+      db.person.findMany({ where: { identityMismatch: true, voidedAt: null } }),
+      db.withdrawal.findMany({
+        where: { status: "pending" },
+        include: { account: { include: { person: true, challengeType: true } } },
+      }),
+      getEligibleBreachedTraders(),
+    ]);
 
   const fundedWithoutKyc = fundedAccounts.filter((a) => a.person.kycStatus !== "verified");
 
@@ -68,7 +69,8 @@ export async function getPendingTasks() {
     kycSubmitted.length +
     fundedWithoutKyc.length +
     identityFlags.length +
-    pendingWithdrawals.length;
+    pendingWithdrawals.length +
+    offerLeads.length;
 
   return {
     flagged,
@@ -78,6 +80,7 @@ export async function getPendingTasks() {
     fundedWithoutKyc,
     identityFlags,
     pendingWithdrawals,
+    offerLeads,
     total,
   };
 }

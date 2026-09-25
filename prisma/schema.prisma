@@ -106,6 +106,7 @@ enum NotificationType {
   payout_requested
   payout_approved
   payout_declined
+  offer_received
 }
 
 model Notification {
@@ -122,6 +123,85 @@ model Notification {
 
   @@index([personId, createdAt])
   @@index([personId, readAt])
+}
+
+// ---------------------------------------------------------------------------
+// Offers & discount campaigns (module 7.1) — re-purchase offers for
+// breached traders, primarily. See src/server/offers.ts for the redemption
+// logic and why maxUses is enforced at issue time, not just at redemption.
+// ---------------------------------------------------------------------------
+
+enum OfferDiscountType {
+  percent
+  fixed
+}
+
+enum OfferAudience {
+  all_traders
+  breached_traders
+  specific_trader
+}
+
+enum OfferStatus {
+  sent
+  redeemed
+  withdrawn
+}
+
+model OfferCampaign {
+  id            String            @id @default(cuid())
+  name          String
+  code          String            @unique
+  discountType  OfferDiscountType
+  discountValue Decimal           @db.Decimal(10, 2)
+  audience      OfferAudience
+  // Which challenge family this applies to — null means any. A family, not
+  // a specific version, so the campaign stays valid across a re-version.
+  challengeTypeFamilyId String?
+
+  validFrom DateTime
+  validTo   DateTime
+  // Cap on issued-or-redeemed offers (withdrawn ones free the slot back
+  // up). Null means unlimited.
+  maxUses Int?
+  active  Boolean @default(true)
+
+  createdAt   DateTime   @default(now())
+  createdById String?
+  createdBy   AdminUser? @relation(fields: [createdById], references: [id])
+
+  issuedOffers IssuedOffer[]
+
+  @@index([code])
+}
+
+// One offer sent to one trader against one campaign. normalFee/offerFee are
+// frozen at issue time — editing the campaign afterwards never changes an
+// already-issued offer.
+model IssuedOffer {
+  id              String        @id @default(cuid())
+  campaignId      String
+  campaign        OfferCampaign @relation(fields: [campaignId], references: [id])
+  personId        String
+  person          Person        @relation(fields: [personId], references: [id])
+  challengeTypeId String
+  challengeType   ChallengeType @relation(fields: [challengeTypeId], references: [id])
+
+  normalFee Decimal     @db.Decimal(14, 2)
+  offerFee  Decimal     @db.Decimal(14, 2)
+  status    OfferStatus @default(sent)
+
+  issuedAt   DateTime  @default(now())
+  issuedById String
+  issuedBy   AdminUser @relation(fields: [issuedById], references: [id])
+  expiresAt  DateTime
+
+  redeemedOrderRef String?
+  redeemedAt       DateTime?
+  withdrawnReason  String?
+
+  @@index([personId])
+  @@index([campaignId])
 }
 
 // ---------------------------------------------------------------------------
@@ -158,6 +238,7 @@ model ChallengeType {
   phases          ChallengePhase[]
   accounts        Account[]
   termsAcceptance TermsAcceptance[]
+  issuedOffers    IssuedOffer[]
 
   @@unique([familyId, version])
   @@index([familyId])
@@ -232,6 +313,7 @@ model Person {
   payments        Payment[]
   kycDocuments    KycDocument[]
   notifications   Notification[]
+  issuedOffers    IssuedOffer[]
 
   @@index([email])
 }
@@ -435,6 +517,8 @@ model AdminUser {
   createdChallenges  ChallengeType[]
   decidedWithdrawals Withdrawal[]
   notes              Note[]
+  createdCampaigns   OfferCampaign[]
+  issuedOffers       IssuedOffer[]
 
   @@index([email])
 }

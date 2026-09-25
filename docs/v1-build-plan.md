@@ -182,7 +182,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 7.1 | Offers & discount campaigns | 🟢 | Needs server-side redemption limits |
+| 7.1 | Offers & discount campaigns | 🟢 | **Built and verified live**, closing the exact gap this row used to flag. The prototype (`back-office.jsx`'s OffersView) demonstrated the screens but enforced nothing — "Mark redeemed" was a plain UI toggle with no cap check. Now: campaigns (code, percent/fixed discount, audience, challenge family, valid dates, max uses), the maxUses cap enforced server-side at issue time (a slot is reserved the moment an offer is sent, not just when redeemed — verified directly, both through the UI and a raw API call against an already-capped campaign), and real redemption wired into order intake (`POST /api/v1/orders` accepts an optional `offer_code`; a matching outstanding offer is marked redeemed atomically with the order, verified end to end including that a second redemption attempt correctly charges full price and logs as unresolved rather than double-spending). `offer_received` notification gated on marketing consent per modules-to-design.md §4.4/4.5. `/admin/offers`, pending-tasks' "breached trader awaiting an offer" bucket now wired (previously left out for lack of a UI to act on) |
 | 7.2 | Competitions | 🟢 | Legal check on paid-entry prize contests first |
 | 7.3 | User 360 profile | 🟡 | Aggregation view; build once the underlying modules exist |
 | 7.4 | Affiliates | 🔴 | |

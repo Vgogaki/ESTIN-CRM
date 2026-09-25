@@ -11,6 +11,7 @@ import { errorResponse } from "@/server/http";
 const schema = z.object({
   personEmail: z.string().email(),
   challengeTypeId: z.string().min(1),
+  offerCode: z.string().optional(),
 });
 
 /**
@@ -32,15 +33,35 @@ export async function POST(request: Request) {
     if (!challengeType) throw new ValidationError("Challenge type not found.");
 
     const ipAddress = await requestIp();
+
+    // Simulates what a real checkout would already have charged after
+    // applying the discount — this route stands in for checkout, so it
+    // computes the offer price itself rather than createOrder doing it
+    // (createOrder's job is only to validate + mark redemption, per
+    // src/server/offers.ts's tryRedeemOffer).
+    let amountPaid = Number(challengeType.fee);
+    if (body.offerCode) {
+      const offer = await db.issuedOffer.findFirst({
+        where: {
+          personId: person.id,
+          status: "sent",
+          expiresAt: { gte: new Date() },
+          campaign: { code: body.offerCode.trim() },
+        },
+      });
+      if (offer) amountPaid = Number(offer.offerFee);
+    }
+
     const { account } = await createOrder({
       orderRef: `TEST-${randomUUID()}`,
       fullName: person.fullName,
       email: person.email,
       country: person.country,
       challengeTypeId: body.challengeTypeId,
-      amountPaid: Number(challengeType.fee),
+      amountPaid,
       currency: challengeType.currency,
       paymentProvider: "manual-test",
+      offerCode: body.offerCode,
       ipAddress,
     });
 

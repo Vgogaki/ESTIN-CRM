@@ -4,13 +4,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode } from "react";
 
-const NAV = [{ href: "/portal", label: "Dashboard" }];
+const NAV = [
+  { href: "/portal", label: "Dashboard" },
+  { href: "/portal/notifications", label: "Notifications" },
+];
 
 export function PortalShell({
   trader,
+  unreadCount = 0,
   children,
 }: {
   trader: { fullName: string };
+  unreadCount?: number;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -35,11 +40,16 @@ export function PortalShell({
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
                       active ? "bg-accbg text-acc" : "text-sub hover:text-ink"
                     }`}
                   >
                     {item.label}
+                    {item.href === "/portal/notifications" && unreadCount > 0 && (
+                      <span className="rounded-full bg-danger-bg px-1.5 py-0.5 font-mono text-[10px] text-danger">
+                        {unreadCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

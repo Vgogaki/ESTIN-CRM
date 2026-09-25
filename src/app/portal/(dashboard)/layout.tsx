@@ -1,5 +1,6 @@
 import { getCurrentTrader } from "@/server/auth/guard";
 import { PortalShell } from "@/components/portal-shell";
+import { unreadNotificationCount } from "@/server/notifications";
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const trader = await getCurrentTrader();
@@ -8,5 +9,11 @@ export default async function PortalLayout({ children }: { children: React.React
   // actual auth requirement is still enforced by each protected page.
   if (!trader) return children;
 
-  return <PortalShell trader={{ fullName: trader.fullName }}>{children}</PortalShell>;
+  const unreadCount = await unreadNotificationCount(trader.id);
+
+  return (
+    <PortalShell trader={{ fullName: trader.fullName }} unreadCount={unreadCount}>
+      {children}
+    </PortalShell>
+  );
 }

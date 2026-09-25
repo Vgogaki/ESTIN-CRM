@@ -88,6 +88,39 @@ enum KycDocumentType {
   selfie
 }
 
+// In-app only for now (module 4.4) — the "Email" column in
+// modules-to-design.md §4.4/4.5 is a separate, still-unbuilt concern
+// blocked on a transactional email provider decision, same as the
+// verification-link emails that are currently a dev console log
+// (src/server/auth). Not every event in that table has a trigger built
+// yet — only the ones from events this codebase actually produces so far
+// (order intake, breach/pass automation, expiry sweep, KYC review).
+enum NotificationType {
+  account_created
+  phase_passed
+  breach
+  account_expired
+  kyc_submitted
+  kyc_verified
+  kyc_rejected
+}
+
+model Notification {
+  id       String           @id @default(cuid())
+  personId String
+  person   Person           @relation(fields: [personId], references: [id])
+  type     NotificationType
+  title    String
+  body     String
+  link     String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([personId, createdAt])
+  @@index([personId, readAt])
+}
+
 // ---------------------------------------------------------------------------
 // Challenge Builder — rules live on versioned templates, never on accounts.
 // Editing a live template creates a new ChallengeType row (new version);
@@ -195,6 +228,7 @@ model Person {
   notes           Note[]
   payments        Payment[]
   kycDocuments    KycDocument[]
+  notifications   Notification[]
 
   @@index([email])
 }

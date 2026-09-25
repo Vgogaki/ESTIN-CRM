@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { determineAutoTransition, evaluateAccount } from "@/server/rules";
+import { notifyTrader } from "@/server/notifications";
 
 export async function listTraders(search?: string, statusFilter?: AccountStatus) {
   return db.person.findMany({
@@ -154,6 +155,17 @@ export async function updateAccountState(input: {
         ipAddress: input.ipAddress,
       });
 
+      await notifyTrader({
+        personId: before.personId,
+        type: transition.kind === "breach" ? "breach" : "phase_passed",
+        title: transition.kind === "breach" ? "Account closed — rule breached" : "Profit target reached",
+        body:
+          transition.kind === "breach"
+            ? `Your ${before.challengeType.name} account was closed: ${transition.reason}`
+            : `Your ${before.challengeType.name} account hit its profit target and is now under review.`,
+        link: "/portal",
+      });
+
       return final;
     }
   }
@@ -220,6 +232,19 @@ export async function setKycStatus(input: {
     reason: input.reason,
     ipAddress: input.ipAddress,
   });
+
+  if (input.status === "verified" || input.status === "rejected") {
+    await notifyTrader({
+      personId: input.personId,
+      type: input.status === "verified" ? "kyc_verified" : "kyc_rejected",
+      title: input.status === "verified" ? "Identity verified" : "Identity verification rejected",
+      body:
+        input.status === "verified"
+          ? "Your identity documents have been verified."
+          : `Your identity documents were rejected: ${input.reason}`,
+      link: "/portal/kyc",
+    });
+  }
 
   return updated;
 }

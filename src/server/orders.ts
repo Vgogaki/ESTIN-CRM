@@ -2,6 +2,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { CURRENT_TERMS_VERSION } from "@/server/terms";
+import { notifyTrader } from "@/server/notifications";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -132,6 +133,14 @@ export async function createOrder(input: CreateOrderInput) {
         currency: input.currency,
       },
       ipAddress: input.ipAddress,
+    });
+
+    await notifyTrader({
+      personId: person.id,
+      type: "account_created",
+      title: "Challenge account created",
+      body: `Your ${challengeType.name} account is ready.`,
+      link: "/portal",
     });
 
     return { account, replay: false as const, identityMismatch };

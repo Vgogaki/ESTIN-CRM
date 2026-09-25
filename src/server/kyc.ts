@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { deleteStored, retrieveDecrypted, storeEncrypted } from "@/server/kyc-storage";
+import { notifyTrader } from "@/server/notifications";
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -47,6 +48,13 @@ export async function uploadKycDocument(input: {
     await db.person.update({
       where: { id: input.personId },
       data: { kycStatus: "submitted", kycRejectionReason: null },
+    });
+    await notifyTrader({
+      personId: input.personId,
+      type: "kyc_submitted",
+      title: "Identity documents submitted",
+      body: "Your identity documents have been received and are awaiting review.",
+      link: "/portal/kyc",
     });
   }
 

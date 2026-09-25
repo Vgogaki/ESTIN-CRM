@@ -1,6 +1,7 @@
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { isPhaseExpired } from "@/server/expiry";
+import { notifyTrader } from "@/server/notifications";
 
 /**
  * Module 3.5's sweep — run on a schedule by pg-boss (src/server/jobs/boss.ts).
@@ -18,7 +19,7 @@ export async function runExpirySweep(now: Date = new Date()) {
       phase: "evaluation",
       currentPhase: { timeLimitDays: { not: null } },
     },
-    include: { currentPhase: true },
+    include: { currentPhase: true, challengeType: true },
   });
 
   let closed = 0;
@@ -43,6 +44,14 @@ export async function runExpirySweep(now: Date = new Date()) {
       before: { status: acct.status, phase: acct.phase },
       after: { status: updated.status, phase: updated.phase },
       reason,
+    });
+
+    await notifyTrader({
+      personId: acct.personId,
+      type: "account_expired",
+      title: "Account closed — time limit reached",
+      body: `Your ${acct.challengeType.name} account was closed: ${reason}`,
+      link: "/portal",
     });
 
     closed++;

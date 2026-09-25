@@ -139,8 +139,8 @@ Every module below is in scope for V1. Nothing is added after this point without
 | 4.1 | Dashboard & objectives | 🟢 | Breach level shown in currency, not only % |
 | 4.2 | My plans / phase progression | 🟢 | **Updated** — the dashboard now lists the trader's actual accounts (challenge, size, status, phase, time remaining) instead of a hardcoded "no accounts yet" placeholder left over from before order intake existed. Still no rule meters on the trader side (admin-only for now, `/admin/traders/[person]`) |
 | 4.3 | KYC upload | 🟢 | **Built and verified live** — `/portal/kyc`, four document types (identity front/back, proof of address, selfie), JPEG/PNG/PDF up to 10MB, status badge, rejection reason shown with a prompt to re-upload |
-| 4.4 | Notifications centre | 🔴 | In-app list: passes, failures, phase changes, KYC, payouts, risk notices, offers, system messages |
-| 4.5 | Transactional email delivery | 🔴 | Sending service, deliverability, templates. **Not on the original list; the notifications centre needs a delivery mechanism behind it** |
+| 4.4 | Notifications centre | 🟡 | **In-app list built and verified live** — `/portal/notifications`, read/unread state (unread badge in the nav, clears on visit), wired to every event this codebase currently produces: account created, breach, pass under review, time-limit expiry, KYC submitted/verified/rejected. Not wired: payouts, offers, competitions, risk notices, general system messages — none of those have a triggering event built yet either (Phase 5/6/7) |
+| 4.5 | Transactional email delivery | 🔴 | Sending service, deliverability, templates. **Not on the original list; the notifications centre needs a delivery mechanism behind it.** In-app notifications (4.4) don't depend on this — email is the "and, where marked, an email" half of modules-to-design.md §4.4/4.5, still open |
 | 4.6 | Support / messaging | 🔴 | Threads, statuses (Open / Awaiting Trader / Resolved), linked to User 360 |
 
 ### Phase 5 — Payouts

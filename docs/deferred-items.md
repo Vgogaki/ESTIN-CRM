@@ -46,6 +46,14 @@ These are the ones most worth looking at first.
 - **Whether a confirmed link should affect payouts** — spec 6.1 says flag for review, do not auto-block; the later "open high-severity risk flags block payouts" rule (6.7) isn't built. *Decision.*
 - IP linking is deliberately weak and never queued on its own; any threshold for "many people on one IP" is undecided.
 
+## B3. Finance (5.5)
+
+- **Refunds and chargebacks** — reported as "not tracked"; needs module 2.3 and a stored refund amount. *Vendor (payment provider).*
+- **Revenue recognition** — figures are cash received at purchase, no deferral (decision #10). *Decision (accountant).*
+- **Paid vs approved payouts** — needs a payout provider. *Vendor.*
+- Single-currency firm statistics on the dashboard vs. per-currency here — the dashboard still sums one currency.
+- No scheduled/emailed reports, no accounting-package format (only generic CSV).
+
 ## C. Blocked on the trading platform (3.2 / 3.3)
 
 - **Equity feed** — all equity today is typed in by an admin ("Manual override"). Everything that "runs automatically" runs off that.

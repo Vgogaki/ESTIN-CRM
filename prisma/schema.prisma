@@ -140,6 +140,7 @@ enum OfferDiscountType {
 enum OfferAudience {
   all_traders
   breached_traders
+  competition_entrants
   specific_trader
 }
 
@@ -159,6 +160,12 @@ model OfferCampaign {
   // Which challenge family this applies to — null means any. A family, not
   // a specific version, so the campaign stays valid across a re-version.
   challengeTypeFamilyId String?
+
+  // Days after a breach before this offer may be sent to a breached trader
+  // (docs/decisions.md: "sent after a configurable delay, default 3 days,
+  // not instantly" — no time-pressured upsell straight after a loss).
+  // Only applies to the breached_traders audience; 0 means send at once.
+  sendDelayDays Int @default(3)
 
   validFrom DateTime
   validTo   DateTime

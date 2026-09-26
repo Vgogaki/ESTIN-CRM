@@ -29,6 +29,21 @@ export function discountedFee(
   return fee.lessThan(zero) ? zero : fee;
 }
 
+/** What an offer costs the firm per sale — the "revenue given up" line in the campaign form's price preview. */
+export function priceBreakdown(
+  normalFee: Prisma.Decimal,
+  discountType: OfferDiscountType,
+  discountValue: Prisma.Decimal,
+) {
+  const offerFee = discountedFee(normalFee, discountType, discountValue);
+  return { normalFee, offerFee, revenueGivenUp: normalFee.minus(offerFee) };
+}
+
+/** Whether a breached trader has waited out a campaign's send delay. Zero means immediately. */
+export function isPastSendDelay(breachedAt: Date, sendDelayDays: number, now: Date): boolean {
+  return now.getTime() >= breachedAt.getTime() + sendDelayDays * 24 * 60 * 60 * 1000;
+}
+
 export async function createCampaign(input: {
   name: string;
   code: string;
@@ -39,9 +54,11 @@ export async function createCampaign(input: {
   validFrom: Date;
   validTo: Date;
   maxUses: number | null;
+  sendDelayDays: number;
   adminId: string;
   ipAddress: string;
 }) {
+  if (input.sendDelayDays < 0) throw new ValidationError("The send delay can't be negative.");
   if (input.validFrom >= input.validTo) {
     throw new ValidationError("Valid-from must be before valid-to.");
   }
@@ -66,6 +83,7 @@ export async function createCampaign(input: {
       validFrom: input.validFrom,
       validTo: input.validTo,
       maxUses: input.maxUses,
+      sendDelayDays: input.sendDelayDays,
       createdById: input.adminId,
     },
   });
@@ -160,6 +178,24 @@ export async function issueOffer(input: {
   }
 
   const person = await db.person.findUniqueOrThrow({ where: { id: input.personId } });
+
+  if (campaign.audience === "breached_traders") {
+    const breached = await db.account.findFirst({
+      where: { personId: input.personId, status: "breached", voidedAt: null },
+      orderBy: { updatedAt: "desc" },
+    });
+    if (!breached) throw new ValidationError("This campaign is for breached traders, and this trader hasn't breached.");
+    if (!isPastSendDelay(breached.endedAt ?? breached.updatedAt, campaign.sendDelayDays, now)) {
+      throw new ValidationError(
+        `This campaign waits ${campaign.sendDelayDays} day(s) after a breach before sending, and that time hasn't passed yet.`,
+      );
+    }
+  }
+  if (campaign.audience === "competition_entrants") {
+    const entry = await db.competitionEntry.findFirst({ where: { personId: input.personId } });
+    if (!entry) throw new ValidationError("This campaign is for competition entrants, and this trader hasn't entered one.");
+  }
+
   const existingSent = await db.issuedOffer.findFirst({
     where: { personId: input.personId, status: "sent" },
   });

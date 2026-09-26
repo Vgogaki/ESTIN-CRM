@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/server/auth/guard";
 import { hasPermission } from "@/server/permissions";
+import { db } from "@/server/db";
 import { listCampaigns, getEligibleBreachedTraders, listIssuedOffers } from "@/server/offers";
 import { listChallengeTypeFamilies } from "@/server/challenge-types";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,12 +15,15 @@ export default async function OffersPage() {
     return <Alert tone="danger">You don&apos;t have permission to view this.</Alert>;
   }
 
-  const [campaigns, eligible, issued, families] = await Promise.all([
+  const [campaigns, eligible, issued, families, people, entries] = await Promise.all([
     listCampaigns(),
     getEligibleBreachedTraders(),
     listIssuedOffers(),
     listChallengeTypeFamilies(),
+    db.person.findMany({ where: { voidedAt: null }, orderBy: { fullName: "asc" } }),
+    db.competitionEntry.findMany({ select: { personId: true } }),
   ]);
+  const entrantIds = new Set(entries.map((e) => e.personId));
 
   const activeChallengeTypes = families
     .filter((f) => f.active)
@@ -49,6 +53,7 @@ export default async function OffersPage() {
           validFrom: c.validFrom.toISOString(),
           validTo: c.validTo.toISOString(),
           maxUses: c.maxUses,
+          sendDelayDays: c.sendDelayDays,
           active: c.active,
           usedCount: c.issuedOffers.filter((o) => o.status !== "withdrawn").length,
         }))}
@@ -58,7 +63,13 @@ export default async function OffersPage() {
           email: a.person.email,
           challengeTypeName: a.challengeType.name,
           challengeTypeFamilyId: a.challengeType.familyId,
-          breachedAt: a.updatedAt.toISOString(),
+          breachedAt: (a.endedAt ?? a.updatedAt).toISOString(),
+        }))}
+        otherTraders={people.map((p) => ({
+          id: p.id,
+          fullName: p.fullName,
+          email: p.email,
+          isEntrant: entrantIds.has(p.id),
         }))}
         issuedOffers={issued.map((o) => ({
           id: o.id,

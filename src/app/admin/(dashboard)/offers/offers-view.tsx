@@ -14,8 +14,9 @@ type Campaign = {
   code: string;
   discountType: "percent" | "fixed";
   discountValue: string;
-  audience: "all_traders" | "breached_traders" | "specific_trader";
+  audience: "all_traders" | "breached_traders" | "competition_entrants" | "specific_trader";
   challengeTypeFamilyId: string | null;
+  sendDelayDays: number;
   validFrom: string;
   validTo: string;
   maxUses: number | null;
@@ -30,6 +31,7 @@ type EligibleTrader = {
   challengeTypeFamilyId: string;
   breachedAt: string;
 };
+type OtherTrader = { id: string; fullName: string; email: string; isEntrant: boolean };
 type IssuedOffer = {
   id: string;
   traderName: string;
@@ -69,6 +71,7 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
   const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
   const [discountValue, setDiscountValue] = useState("20");
   const [audience, setAudience] = useState<Campaign["audience"]>("breached_traders");
+  const [sendDelayDays, setSendDelayDays] = useState("3");
   const [familyId, setFamilyId] = useState("");
   const [validFrom, setValidFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState(() => {
@@ -80,6 +83,14 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const previewRows = challengeTypes
+    .filter((c) => !familyId || c.familyId === familyId)
+    .map((c) => {
+      const normal = Number(c.fee);
+      const v = Number(discountValue) || 0;
+      const offer = Math.max(0, discountType === "percent" ? (normal * (100 - v)) / 100 : normal - v);
+      return { name: c.name, currency: c.currency, normal, offer, givenUp: normal - offer };
+    });
   const families = Array.from(new Map(challengeTypes.map((c) => [c.familyId, c.name])).entries());
 
   async function submit() {
@@ -99,6 +110,7 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
           validFrom: new Date(validFrom).toISOString(),
           validTo: new Date(validTo).toISOString(),
           maxUses: maxUses ? Number(maxUses) : null,
+          sendDelayDays: audience === "breached_traders" ? Number(sendDelayDays || 0) : 0,
         }),
       });
       const data = await res.json();
@@ -132,14 +144,10 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
         <Field label={discountType === "percent" ? "Discount %" : "Discount amount"}>
           <Input type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} />
         </Field>
-        <Field label="Audience">
-          <Select value={audience} onChange={(e) => setAudience(e.target.value as Campaign["audience"])}>
-            <option value="breached_traders">Breached traders</option>
-            <option value="all_traders">All traders</option>
-            <option value="specific_trader">Specific trader</option>
-          </Select>
-        </Field>
-        <Field label="Applies to" hint="Leave blank for any challenge">
+      </div>
+
+      <div className="mt-4">
+        <Field label="Applies to challenge">
           <Select value={familyId} onChange={(e) => setFamilyId(e.target.value)}>
             <option value="">Any challenge</option>
             {families.map(([id, name]) => (
@@ -149,6 +157,69 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
             ))}
           </Select>
         </Field>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-bd bg-raise p-4 text-sm">
+        {previewRows.length === 0 ? (
+          <p className="text-sub">No published challenge to preview a price against yet.</p>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {previewRows.map((r) => (
+              <div key={r.name} className="flex flex-col gap-1.5">
+                <div className="flex justify-between">
+                  <span className="text-sub">{r.name} normal fee</span>
+                  <span>{money(String(r.normal), r.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sub">With this offer</span>
+                  <span className="font-mono font-semibold">{money(String(r.offer), r.currency)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sub">Revenue given up per sale</span>
+                  <span>{money(String(r.givenUp), r.currency)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 border-t border-bd pt-4">
+        <p className="mb-2 font-display text-sm font-semibold">Who receives it</p>
+        <div className="flex flex-wrap gap-1.5">
+          {(
+            [
+              ["breached_traders", "Breached traders"],
+              ["all_traders", "All traders"],
+              ["competition_entrants", "Competition entrants"],
+              ["specific_trader", "Specific trader"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setAudience(id)}
+              className={`rounded-md border px-3 py-1.5 text-sm ${
+                audience === id ? "border-acc bg-accbg text-acc" : "border-bd text-sub hover:text-ink"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {audience === "breached_traders" && (
+          <div className="mt-3">
+            <Field
+              label="Send this many days after the breach"
+              hint="A delay of a few days performs better than an immediate send and avoids pressuring someone in the moment they have just lost money. Zero means send straight away."
+            >
+              <Input type="number" min={0} value={sendDelayDays} onChange={(e) => setSendDelayDays(e.target.value)} />
+            </Field>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 border-t border-bd pt-4">
         <Field label="Valid from">
           <Input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
         </Field>
@@ -176,14 +247,80 @@ function NewCampaignForm({ challengeTypes, onDone }: { challengeTypes: Challenge
   );
 }
 
+/** Sending for the audiences that aren't "breached traders" — all traders, competition entrants, or one specific trader. The server re-checks eligibility either way. */
+function OtherAudienceSend({
+  campaigns,
+  traders,
+  challengeTypes,
+  issuingFor,
+  onIssue,
+}: {
+  campaigns: Campaign[];
+  traders: OtherTrader[];
+  challengeTypes: ChallengeTypeOption[];
+  issuingFor: string | null;
+  onIssue: (personId: string, campaignId: string, challengeTypeId: string) => void;
+}) {
+  const [campaignId, setCampaignId] = useState("");
+  const [personId, setPersonId] = useState("");
+  const usable = campaigns.filter(
+    (c) => c.active && c.audience !== "breached_traders" && new Date(c.validTo) > new Date() && (c.maxUses === null || c.usedCount < c.maxUses),
+  );
+  if (usable.length === 0) return null;
+
+  const campaign = usable.find((c) => c.id === campaignId) ?? usable[0];
+  const pool = traders.filter((t) => campaign.audience !== "competition_entrants" || t.isEntrant);
+  const person = pool.find((t) => t.id === personId) ?? pool[0];
+  const ct = challengeTypes.find((c) => !campaign.challengeTypeFamilyId || c.familyId === campaign.challengeTypeFamilyId);
+
+  return (
+    <Card className="p-5">
+      <h2 className="mb-3 font-display text-sm font-semibold">Send to another audience</h2>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <Field label="Campaign">
+            <Select value={campaign.id} onChange={(e) => setCampaignId(e.target.value)}>
+              {usable.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.audience.replace("_", " ")}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="flex-1">
+          <Field label="Trader">
+            <Select value={person?.id ?? ""} onChange={(e) => setPersonId(e.target.value)}>
+              {pool.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.fullName} ({t.email})
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <Button
+          disabled={!person || !ct || issuingFor === `${person?.id}:${campaign.id}`}
+          onClick={() => person && ct && onIssue(person.id, campaign.id, ct.id)}
+        >
+          Send
+        </Button>
+      </div>
+      {pool.length === 0 && <p className="mt-2 text-xs text-sub">No eligible traders for this audience.</p>}
+    </Card>
+  );
+}
+
 export default function OffersView({
   campaigns,
   eligibleTraders,
+  otherTraders,
   issuedOffers,
   challengeTypes,
 }: {
   campaigns: Campaign[];
   eligibleTraders: EligibleTrader[];
+  otherTraders: OtherTrader[];
   issuedOffers: IssuedOffer[];
   challengeTypes: ChallengeTypeOption[];
 }) {
@@ -325,53 +462,75 @@ export default function OffersView({
           </Card>
         ))}
 
-      {tab === "send" &&
-        (eligibleTraders.length === 0 ? (
-          <Card className="p-6 text-sm text-sub">No breached traders awaiting an offer.</Card>
-        ) : (
-          <Card className="overflow-hidden p-0">
-            {eligibleTraders.map((t) => {
-              const usable = campaigns.filter(
-                (c) =>
-                  c.active &&
-                  new Date(c.validTo) > new Date() &&
-                  (c.audience === "breached_traders" || c.audience === "all_traders") &&
-                  (c.challengeTypeFamilyId === null || c.challengeTypeFamilyId === t.challengeTypeFamilyId) &&
-                  (c.maxUses === null || c.usedCount < c.maxUses),
-              );
-              // The current active version of the family they breached on —
-              // not necessarily the exact version they originally bought,
-              // since a re-purchase should reflect what's sellable today.
-              const ct = challengeTypes.find((c) => c.familyId === t.challengeTypeFamilyId);
-              return (
-                <div key={t.personId} className="flex items-center justify-between border-b border-bd px-4 py-3 text-sm last:border-b-0">
-                  <div>
-                    <p>{t.fullName}</p>
-                    <p className="text-xs text-sub">
-                      {t.email} · {t.challengeTypeName}
-                    </p>
+      {tab === "send" && (
+        <div className="flex flex-col gap-5">
+          {eligibleTraders.length === 0 ? (
+            <Card className="p-6 text-sm text-sub">No breached traders awaiting an offer.</Card>
+          ) : (
+            <Card className="overflow-hidden p-0">
+              {eligibleTraders.map((t) => {
+                const now = new Date();
+                const candidates = campaigns.filter(
+                  (c) =>
+                    c.active &&
+                    new Date(c.validTo) > now &&
+                    (c.audience === "breached_traders" || c.audience === "all_traders") &&
+                    (c.challengeTypeFamilyId === null || c.challengeTypeFamilyId === t.challengeTypeFamilyId) &&
+                    (c.maxUses === null || c.usedCount < c.maxUses),
+                );
+                // Only breached-trader campaigns wait out the send delay.
+                const waitDays = (c: Campaign) =>
+                  c.audience === "breached_traders"
+                    ? Math.ceil((new Date(t.breachedAt).getTime() + c.sendDelayDays * 86400000 - now.getTime()) / 86400000)
+                    : 0;
+                // The current active version of the family they breached on —
+                // not necessarily the exact version they originally bought,
+                // since a re-purchase should reflect what's sellable today.
+                const ct = challengeTypes.find((c) => c.familyId === t.challengeTypeFamilyId);
+                return (
+                  <div key={t.personId} className="flex items-center justify-between border-b border-bd px-4 py-3 text-sm last:border-b-0">
+                    <div>
+                      <p>{t.fullName}</p>
+                      <p className="text-xs text-sub">
+                        {t.email} · {t.challengeTypeName} · breached {new Date(t.breachedAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {candidates.length === 0 ? (
+                        <span className="text-xs text-sub">No matching campaign</span>
+                      ) : (
+                        candidates.map((c) =>
+                          waitDays(c) > 0 ? (
+                            <span key={c.id} className="text-xs text-sub">
+                              {c.code} available in {waitDays(c)} day{waitDays(c) === 1 ? "" : "s"}
+                            </span>
+                          ) : (
+                            <Button
+                              key={c.id}
+                              variant="ghost"
+                              disabled={!ct || issuingFor === `${t.personId}:${c.id}`}
+                              onClick={() => ct && issue(t.personId, c.id, ct.id)}
+                            >
+                              {issuingFor === `${t.personId}:${c.id}` ? "Sending…" : `Send ${c.code}`}
+                            </Button>
+                          ),
+                        )
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    {usable.length === 0 ? (
-                      <span className="text-xs text-sub">No matching campaign</span>
-                    ) : (
-                      usable.map((c) => (
-                        <Button
-                          key={c.id}
-                          variant="ghost"
-                          disabled={!ct || issuingFor === `${t.personId}:${c.id}`}
-                          onClick={() => ct && issue(t.personId, c.id, ct.id)}
-                        >
-                          {issuingFor === `${t.personId}:${c.id}` ? "Sending…" : `Send ${c.code}`}
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
-        ))}
+                );
+              })}
+            </Card>
+          )}
+          <OtherAudienceSend
+            campaigns={campaigns}
+            traders={otherTraders}
+            challengeTypes={challengeTypes}
+            issuingFor={issuingFor}
+            onIssue={issue}
+          />
+        </div>
+      )}
 
       {tab === "issued" &&
         (issuedOffers.length === 0 ? (

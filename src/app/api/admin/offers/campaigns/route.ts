@@ -9,7 +9,8 @@ const schema = z.object({
   code: z.string().min(2).max(40),
   discountType: z.enum(["percent", "fixed"]),
   discountValue: z.number().positive(),
-  audience: z.enum(["all_traders", "breached_traders", "specific_trader"]),
+  audience: z.enum(["all_traders", "breached_traders", "competition_entrants", "specific_trader"]),
+  sendDelayDays: z.number().int().nonnegative(),
   challengeTypeFamilyId: z.string().nullable().optional(),
   validFrom: z.string().min(1),
   validTo: z.string().min(1),
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
       validFrom: new Date(body.validFrom),
       validTo: new Date(body.validTo),
       maxUses: body.maxUses ?? null,
+      sendDelayDays: body.sendDelayDays,
       adminId: admin.id,
       ipAddress: await requestIp(),
     });

@@ -897,3 +897,25 @@ model EmailOutbox {
   @@index([status, createdAt])
   @@index([personId])
 }
+enum JurisdictionInputKey {
+  sanctions
+  payment_provider
+  data_vendor
+  marketing_legal
+}
+
+enum JurisdictionInputStatus {
+  pending
+  in_progress
+  done
+}
+
+/// Progress on the four inputs that decide the restricted-country list (decision #11).
+/// This records who confirmed each input and when; it does not hold the list itself.
+model JurisdictionInput {
+  key         JurisdictionInputKey    @id
+  status      JurisdictionInputStatus @default(pending)
+  note        String?
+  updatedById String?
+  updatedAt   DateTime                @updatedAt
+}

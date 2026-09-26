@@ -4,7 +4,9 @@ import { hasPermission } from "@/server/permissions";
 import { listRules, listOpenReviews } from "@/server/countries";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
+import { listInputs, matrixSettled } from "@/server/jurisdiction";
 import CountriesView from "./countries-view";
+import InputsCard from "./inputs-card";
 
 export default async function CountriesPage() {
   const admin = await getCurrentAdmin();
@@ -13,7 +15,7 @@ export default async function CountriesPage() {
     return <Alert tone="danger">You don&apos;t have permission to view this.</Alert>;
   }
 
-  const [rules, reviews] = await Promise.all([listRules(), listOpenReviews()]);
+  const [rules, reviews, inputs] = await Promise.all([listRules(), listOpenReviews(), listInputs()]);
 
   return (
     <div>
@@ -28,6 +30,12 @@ export default async function CountriesPage() {
         registration or on the order (also their billing country). IP geolocation is not built, and trading
         rules are stored but can&apos;t be enforced until there is a trading platform.
       </Alert>
+      <div className="mt-5">
+        <InputsCard
+          settled={matrixSettled(inputs)}
+          inputs={inputs.map((i) => ({ key: i.key, label: i.label, source: i.source, covers: i.covers, status: i.status, note: i.note }))}
+        />
+      </div>
       <div className="mt-5">
         <CountriesView
           rules={rules.map((r) => ({

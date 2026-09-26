@@ -113,6 +113,12 @@ These are the ones most worth looking at first.
 - Admin edits to a template apply to emails queued afterwards; there is no preview or version history (the audit log keeps the before and after text).
 - Verification and password-reset tokens are still returned by the register API for testing convenience and appear in the `console` driver's log output; both should be reviewed before production.
 
+## B6. Jurisdiction matrix (6.4)
+
+- **The country list itself is still empty and is not a development task.** It needs four inputs from outside the team (sanctions/legal, payment provider, data vendor, Cyprus marketing advice). The Countries page now tracks each, but someone has to obtain them and then enter the resulting rows.
+- The tracker is informational: "settled" doesn't block a launch or change any rule, and there is no automatic check that the entered country rows match what the four sources said.
+- Per-country evidence (which source blocked which country) is only the free-text note on each rule; there is no structured link between a rule and the input behind it.
+
 ## H. Modules not started (for completeness)
 
-6.4 Jurisdiction matrix (business task) · 6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.3 User 360 · 7.4 Affiliates · 7.5 Training content.
+6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.3 User 360 · 7.4 Affiliates · 7.5 Training content.

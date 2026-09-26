@@ -5,6 +5,7 @@ import { CURRENT_TERMS_VERSION } from "@/server/terms";
 import { notifyTrader } from "@/server/notifications";
 import { tryRedeemOffer } from "@/server/offers";
 import { enforceCountry, openReview } from "@/server/countries";
+import { hashFingerprint, scanPerson } from "@/server/account-links";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -21,6 +22,8 @@ export type CreateOrderInput = {
   paymentProvider: string;
   affiliateCode?: string | null;
   offerCode?: string | null;
+  /** The payment provider's card/instrument fingerprint token (never card data) — hashed before storage; feeds 6.1 linking. */
+  paymentInstrumentRef?: string | null;
   ipAddress: string;
 };
 
@@ -116,6 +119,7 @@ export async function createOrder(input: CreateOrderInput) {
           amountPaid: input.amountPaid,
           currency: input.currency,
           paymentProvider: input.paymentProvider,
+          paymentFingerprint: input.paymentInstrumentRef ? hashFingerprint(input.paymentInstrumentRef) : null,
           affiliateCode: input.affiliateCode ?? null,
           status: "succeeded",
         },
@@ -158,6 +162,8 @@ export async function createOrder(input: CreateOrderInput) {
       body: `Your ${challengeType.name} account is ready.`,
       link: "/portal",
     });
+
+    await scanPerson(person.id);
 
     let offerRedeemed = false;
     if (input.offerCode) {

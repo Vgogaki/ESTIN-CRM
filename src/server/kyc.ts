@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { deleteStored, retrieveDecrypted, storeEncrypted } from "@/server/kyc-storage";
 import { notifyTrader } from "@/server/notifications";
+import { scanPerson } from "@/server/account-links";
 
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
@@ -39,6 +40,9 @@ export async function uploadKycDocument(input: {
       checksum,
     },
   });
+
+  // A file reused under a different person is a strong signal (6.1).
+  await scanPerson(input.personId);
 
   // First submission moves not_started -> submitted. Re-uploading after a
   // rejection returns it to submitted for re-review and clears the old

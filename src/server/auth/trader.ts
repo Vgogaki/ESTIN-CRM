@@ -7,6 +7,7 @@ import { createTraderSession, destroyTraderSession } from "@/server/security/ses
 import { generateOpaqueToken, hashToken } from "@/server/security/tokens";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
 import { enforceCountry, openReview } from "@/server/countries";
+import { scanPerson } from "@/server/account-links";
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
@@ -62,6 +63,8 @@ export async function registerTrader(input: {
     entityId: person.id,
     ipAddress: input.ipAddress,
   });
+
+  await scanPerson(person.id);
 
   if (countryAction === "review") {
     await openReview({ personId: person.id, stage: "registration", countryCode: input.country });
@@ -174,6 +177,7 @@ export async function loginTrader(input: {
   await db.person.update({ where: { id: person.id }, data: resetLockout });
 
   const token = await createTraderSession(person.id, input.ipAddress, input.userAgent);
+  await scanPerson(person.id);
 
   await writeAuditLog({
     actorType: "trader",

@@ -38,6 +38,14 @@ These are the ones most worth looking at first.
 - **The list is empty** — which countries belong on it is a legal/business call (decision #11). *Decision.*
 - **Blocked purchases can arrive after payment** — checkout must call `GET /api/v1/country-check` first; until there's a refund flow (2.3) a blocked order that was already paid has no automated remedy. *Vendor.*
 
+## B2. Multiple-account detection (6.1)
+
+- **Device linking** — needs device fingerprinting (6.6, after launch). *Build.*
+- **Address linking** — no address is collected anywhere; needs a field on the person or on KYC. *Decision + Build.*
+- **Payment-instrument linking** works but stays empty until a payment provider supplies a fingerprint token. *Vendor.*
+- **Whether a confirmed link should affect payouts** — spec 6.1 says flag for review, do not auto-block; the later "open high-severity risk flags block payouts" rule (6.7) isn't built. *Decision.*
+- IP linking is deliberately weak and never queued on its own; any threshold for "many people on one IP" is undecided.
+
 ## C. Blocked on the trading platform (3.2 / 3.3)
 
 - **Equity feed** — all equity today is typed in by an admin ("Manual override"). Everything that "runs automatically" runs off that.

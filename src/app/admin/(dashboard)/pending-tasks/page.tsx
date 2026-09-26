@@ -143,6 +143,17 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Possible linked accounts — review" count={tasks.linkedAccounts.length} tone="danger">
+        {tasks.linkedAccounts.map((l) => (
+          <TaskRow
+            key={l.id}
+            href={`/admin/traders/${l.personAId}`}
+            title={`${l.personA.fullName} ↔ ${l.personB.fullName}`}
+            note={(l.signals as { type: string }[]).map((s) => s.type.replace(/_/g, " ")).join(", ")}
+          />
+        ))}
+      </TaskBlock>
+
       <TaskBlock title="Country review needed" count={tasks.countryReviews.length} tone="danger">
         {tasks.countryReviews.map((r) => (
           <TaskRow

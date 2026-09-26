@@ -2,6 +2,7 @@ import { db } from "@/server/db";
 import { evaluateAccount } from "@/server/rules";
 import { getEligibleBreachedTraders } from "@/server/offers";
 import { listOpenReviews } from "@/server/countries";
+import { listOpenStrongLinks } from "@/server/account-links";
 
 /**
  * The operations queue (spec §5.2, module 3.7) — everything waiting on
@@ -42,7 +43,7 @@ export async function getPendingTasks() {
     else if (r.hitTarget) readyToPass.push(acct);
   }
 
-  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals, offerLeads, countryReviews] =
+  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals, offerLeads, countryReviews, linkedAccounts] =
     await Promise.all([
       db.account.findMany({
         where: { phase: "pass_review", voidedAt: null },
@@ -60,6 +61,7 @@ export async function getPendingTasks() {
       }),
       getEligibleBreachedTraders(),
       listOpenReviews(),
+      listOpenStrongLinks(),
     ]);
 
   const fundedWithoutKyc = fundedAccounts.filter((a) => a.person.kycStatus !== "verified");
@@ -73,7 +75,8 @@ export async function getPendingTasks() {
     identityFlags.length +
     pendingWithdrawals.length +
     offerLeads.length +
-    countryReviews.length;
+    countryReviews.length +
+    linkedAccounts.length;
 
   return {
     flagged,
@@ -85,6 +88,7 @@ export async function getPendingTasks() {
     pendingWithdrawals,
     offerLeads,
     countryReviews,
+    linkedAccounts,
     total,
   };
 }

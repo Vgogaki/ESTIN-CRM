@@ -324,6 +324,8 @@ model Person {
   issuedOffers       IssuedOffer[]
   competitionEntries CompetitionEntry[]
   countryReviews     CountryReview[]
+  linksAsA           AccountLink[]      @relation("AccountLinkA")
+  linksAsB           AccountLink[]      @relation("AccountLinkB")
 
   @@index([email])
 }
@@ -406,12 +408,17 @@ model Payment {
   currency              String
   paymentProvider       String
   providerTransactionId String?
+  // Hash of the provider's card/instrument fingerprint token (never card
+  // data) — lets 6.1 link people paying with the same instrument. Null
+  // until a payment provider (decision #5) supplies one.
+  paymentFingerprint    String?
   affiliateCode         String?
   status                PaymentStatus @default(succeeded)
   createdAt             DateTime      @default(now())
 
   @@index([personId])
   @@index([accountId])
+  @@index([paymentFingerprint])
 }
 
 // The row is metadata only — never the file itself. The actual bytes live
@@ -736,5 +743,46 @@ model CountryReview {
   resolutionNote String?
 
   @@index([personId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Multiple-account detection (module 6.1) — see src/server/account-links.ts.
+// Links are between two different PEOPLE (one person with many accounts is
+// normal and by design). "Flag for review; do not auto-block" — nothing here
+// blocks anything.
+// ---------------------------------------------------------------------------
+
+enum AccountLinkStatus {
+  open
+  dismissed
+  confirmed
+}
+
+enum AccountLinkStrength {
+  weak
+  strong
+}
+
+model AccountLink {
+  id        String @id @default(cuid())
+  // Always stored with personAId < personBId so a pair is one row, not two.
+  personAId String
+  personA   Person @relation("AccountLinkA", fields: [personAId], references: [id])
+  personBId String
+  personB   Person @relation("AccountLinkB", fields: [personBId], references: [id])
+
+  // [{ type: "shared_ip" | "shared_kyc_document" | "shared_payment_instrument", value }]
+  signals  Json
+  strength AccountLinkStrength
+  status   AccountLinkStatus   @default(open)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  resolvedAt     DateTime?
+  resolvedById   String?
+  resolutionNote String?
+
+  @@unique([personAId, personBId])
   @@index([status])
 }

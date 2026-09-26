@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link2 from "next/link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +65,16 @@ type KycDocument = {
   sizeBytes: number;
   uploadedAt: string;
 };
+type Link = {
+  id: string;
+  otherId: string;
+  otherName: string;
+  otherEmail: string;
+  strength: "weak" | "strong";
+  status: "open" | "dismissed" | "confirmed";
+  signals: { type: string; value: string }[];
+  resolutionNote: string | null;
+};
 type WithdrawalSummary = {
   id: string;
   challengeTypeName: string;
@@ -97,6 +108,7 @@ type Props = {
   payments: Payment[];
   kycDocuments: KycDocument[];
   withdrawals: WithdrawalSummary[];
+  links: Link[];
 };
 
 function money(value: string, currency: string) {
@@ -127,6 +139,7 @@ export default function TraderDetail({
   payments,
   kycDocuments,
   withdrawals,
+  links,
 }: Props) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState(accounts[0]?.id);
@@ -218,6 +231,29 @@ export default function TraderDetail({
     } finally {
       setAdvancing(false);
     }
+  }
+
+  // Linked accounts (6.1)
+  const canReviewRisk = hasPermission(permissions, "risk.review");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolveNote, setResolveNote] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  async function resolveLink(id: string, status: "dismissed" | "confirmed") {
+    setLinkError(null);
+    const res = await fetch(`/api/admin/account-links/${id}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, note: resolveNote.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setLinkError(data.error ?? "Failed.");
+      return;
+    }
+    setResolvingId(null);
+    setResolveNote("");
+    router.refresh();
   }
 
   // Void form state
@@ -659,6 +695,50 @@ export default function TraderDetail({
             </div>
           </div>
         )}
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-1 font-display text-sm font-semibold">Linked accounts</h2>
+        <p className="mb-3 text-xs text-sub">
+          Other people who share something with this person. For review only — nothing is blocked. An IP
+          address alone is weak (households, offices and VPNs share them).
+        </p>
+        {links.length === 0 ? (
+          <p className="text-sm text-sub">No links found.</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {links.map((l) => (
+              <div key={l.id} className="flex flex-col gap-1.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <Link2 href={`/admin/traders/${l.otherId}`} className="hover:text-acc">
+                    {l.otherName} <span className="text-xs text-sub">{l.otherEmail}</span>
+                  </Link2>
+                  <div className="flex gap-1.5">
+                    <Badge tone={l.strength === "strong" ? "danger" : "neutral"}>{l.strength}</Badge>
+                    <Badge tone={l.status === "open" ? "neutral" : l.status === "confirmed" ? "danger" : "success"}>{l.status}</Badge>
+                  </div>
+                </div>
+                <p className="text-xs text-sub">
+                  {l.signals.map((s) => s.type.replace(/_/g, " ")).filter((v, i, a) => a.indexOf(v) === i).join(", ")}
+                  {l.signals.some((s) => s.type === "shared_ip") ? ` · IP ${l.signals.filter((s) => s.type === "shared_ip").map((s) => s.value).join(", ")}` : ""}
+                </p>
+                {l.resolutionNote && <p className="text-xs text-sub">{l.resolutionNote}</p>}
+                {canReviewRisk && l.status === "open" &&
+                  (resolvingId === l.id ? (
+                    <div className="flex gap-2">
+                      <Input value={resolveNote} onChange={(e) => setResolveNote(e.target.value)} placeholder="What you found" autoFocus />
+                      <Button disabled={resolveNote.trim().length < 4} onClick={() => resolveLink(l.id, "dismissed")}>Not the same / unrelated</Button>
+                      <Button variant="danger" disabled={resolveNote.trim().length < 4} onClick={() => resolveLink(l.id, "confirmed")}>Confirm link</Button>
+                      <Button variant="ghost" onClick={() => setResolvingId(null)}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <Button variant="ghost" className="w-fit" onClick={() => setResolvingId(l.id)}>Review</Button>
+                  ))}
+              </div>
+            ))}
+          </div>
+        )}
+        {linkError && <div className="mt-2"><Alert tone="danger">{linkError}</Alert></div>}
       </Card>
 
       <Card className="p-5">

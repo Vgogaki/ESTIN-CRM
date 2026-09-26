@@ -5,6 +5,7 @@ import { getTraderDetail } from "@/server/traders";
 import { evaluateAccount } from "@/server/rules";
 import { daysRemaining } from "@/server/expiry";
 import { planAdvance } from "@/server/phase-advance";
+import { linksForPerson } from "@/server/account-links";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import TraderDetail from "./trader-detail";
@@ -23,6 +24,8 @@ export default async function TraderDetailPage({
   const { personId } = await params;
   const person = await getTraderDetail(personId);
   if (!person) notFound();
+
+  const links = await linksForPerson(person.id);
 
   const accounts = person.accounts.map((a) => {
     const evalR = a.currentPhase
@@ -115,6 +118,7 @@ export default async function TraderDetailPage({
           kycRejectionReason: person.kycRejectionReason,
         }}
         accounts={accounts}
+        links={links}
         notes={person.notes.map((n) => ({
           id: n.id,
           text: n.text,

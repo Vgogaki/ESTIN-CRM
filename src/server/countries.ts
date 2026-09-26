@@ -169,3 +169,34 @@ export async function clearReview(input: { reviewId: string; note: string; admin
   });
   return updated;
 }
+
+/**
+ * Removing a country from the list. A rule is configuration, not a business
+ * record, so it can be deleted — but never silently: the audit entry keeps
+ * the rule's full previous settings. Open reviews already raised under the
+ * rule are left alone (they belong to the person; clear them separately).
+ */
+export async function deleteRule(input: { countryCode: string; adminId: string; ipAddress: string }) {
+  const code = normalizeCountry(input.countryCode);
+  const rule = await db.countryRule.findUnique({ where: { countryCode: code } });
+  if (!rule) throw new ValidationError("That country isn't on the list.", 404);
+
+  await db.countryRule.delete({ where: { countryCode: code } });
+  await writeAuditLog({
+    actorType: "admin",
+    actorId: input.adminId,
+    action: "country_rule.deleted",
+    entityType: "CountryRule",
+    entityId: rule.id,
+    before: {
+      countryCode: code,
+      registration: rule.registration,
+      purchase: rule.purchase,
+      trading: rule.trading,
+      payout: rule.payout,
+      note: rule.note,
+    },
+    reason: "Removed from the restricted-country list; the country is allowed everywhere again.",
+    ipAddress: input.ipAddress,
+  });
+}

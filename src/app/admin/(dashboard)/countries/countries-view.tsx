@@ -18,6 +18,7 @@ function RuleRow({ rule }: { rule: Rule }) {
   const [draft, setDraft] = useState<Rule>(rule);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const dirty = STAGES.some((s) => draft[s] !== rule[s]) || (draft.note ?? "") !== (rule.note ?? "");
 
   async function save() {
@@ -32,6 +33,22 @@ function RuleRow({ rule }: { rule: Rule }) {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Failed to save.");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    setError(null);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/countries/${rule.countryCode}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Failed to remove.");
         return;
       }
       router.refresh();
@@ -57,12 +74,26 @@ function RuleRow({ rule }: { rule: Rule }) {
           Save
         </Button>
       </div>
-      <div className="mt-2">
+      <div className="mt-2 flex items-center gap-2">
         <Input
           value={draft.note ?? ""}
           onChange={(e) => setDraft({ ...draft, note: e.target.value })}
           placeholder="Why — e.g. who advised this, and when"
         />
+        {confirmingRemove ? (
+          <>
+            <Button variant="danger" disabled={saving} onClick={remove}>
+              Confirm remove
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmingRemove(false)}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" onClick={() => setConfirmingRemove(true)}>
+            Remove
+          </Button>
+        )}
       </div>
       {error && (
         <div className="mt-2">

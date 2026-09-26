@@ -13,6 +13,8 @@ Last updated: 26 September 2026.
 
 ---
 
+> **Decision review:** the founder has asked that all pending decisions (section E, the open items in `decisions.md`, and #18) be left open until the system is complete, then reviewed together one by one for every module flow.
+
 ## A. Important gaps in already-"built" modules
 
 These are the ones most worth looking at first.

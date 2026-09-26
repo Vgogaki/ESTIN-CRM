@@ -24,6 +24,8 @@
 
 ## Open: needs a decision
 
+> **Deliberately left open for now.** Once the system is complete, every open decision below — and the ones flagged per module in `deferred-items.md` (including #18, what happens to equity when an account moves to its next phase) — gets reviewed and decided one at a time, module flow by module flow. Until then each is built as a configuration value or an explicit, audited choice rather than a silent assumption.
+
 | # | Question | Blocks |
 |---|---|---|
 | 2 | Trading-day rollover time and reference timezone | Daily loss, trading-day count |

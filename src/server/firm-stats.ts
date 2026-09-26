@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
+import { countEntrantsConverted, prizeCostCommitted, type PrizeLadderEntry } from "@/server/competitions";
 
 const { Decimal } = Prisma;
 const zero = new Decimal(0);
@@ -72,7 +73,25 @@ export async function getFirmStatistics() {
     });
   }
 
+  const competitions = await db.competition.findMany({ include: { entries: true } });
+  let compEntryRevenue = zero;
+  let compPrizeCost = zero;
+  let compConverted = 0;
+  for (const c of competitions) {
+    compEntryRevenue = c.entries.reduce((s, e) => s.plus(e.entryPaidAmount), compEntryRevenue);
+    if (c.status !== "draft") {
+      compPrizeCost = compPrizeCost.plus(prizeCostCommitted(c.prizeLadder as unknown as PrizeLadderEntry[]));
+    }
+    compConverted += await countEntrantsConverted(c.id);
+  }
+
   return {
+    competitions: {
+      live: competitions.filter((c) => c.status === "active").length,
+      entryRevenue: compEntryRevenue.toString(),
+      prizeCost: compPrizeCost.toString(),
+      converted: compConverted,
+    },
     revenue: revenue.toString(),
     payoutsApproved: payoutsApproved.toString(),
     net: net.toString(),

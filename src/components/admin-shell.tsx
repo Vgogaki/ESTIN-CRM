@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin/traders", label: "Traders" },
   { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/offers", label: "Offers" },
+  { href: "/admin/competitions", label: "Competitions" },
   { href: "/admin/challenge-types", label: "Challenge types" },
   { href: "/admin/test-tools", label: "Test tools" },
 ];

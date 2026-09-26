@@ -35,6 +35,7 @@ type Props = {
     challengesSold: number;
     fundedTraders: number;
     passRate: number;
+    competitions: { live: number; entryRevenue: string; prizeCost: string; converted: number };
     months: { label: string; revenue: string; payouts: string }[];
   };
   tasks: {
@@ -87,6 +88,16 @@ export default function FirmStats({ stats, tasks, recentTraders }: Props) {
         <Link href="/admin/pending-tasks">
           <Stat label="KYC to review" value={String(tasks.kycSubmitted)} />
         </Link>
+      </div>
+
+      <p className="mt-6 mb-2 text-xs font-medium tracking-wide text-sub uppercase">Competitions as acquisition</p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Link href="/admin/competitions">
+          <Stat label="Live competitions" value={String(stats.competitions.live)} />
+        </Link>
+        <Stat label="Entry revenue" value={money(stats.competitions.entryRevenue)} />
+        <Stat label="Prize cost committed" value={money(stats.competitions.prizeCost)} sub="Cash prizes only" />
+        <Stat label="Entrants converted" value={String(stats.competitions.converted)} sub="Bought a challenge after entering" />
       </div>
 
       <p className="mt-6 mb-2 text-xs font-medium tracking-wide text-sub uppercase">

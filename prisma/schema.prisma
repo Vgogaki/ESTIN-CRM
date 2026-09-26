@@ -107,6 +107,7 @@ enum NotificationType {
   payout_approved
   payout_declined
   offer_received
+  competition_results
 }
 
 model Notification {
@@ -306,14 +307,15 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts        Account[]
-  sessions        TraderSession[]
-  termsAcceptance TermsAcceptance[]
-  notes           Note[]
-  payments        Payment[]
-  kycDocuments    KycDocument[]
-  notifications   Notification[]
-  issuedOffers    IssuedOffer[]
+  accounts           Account[]
+  sessions           TraderSession[]
+  termsAcceptance    TermsAcceptance[]
+  notes              Note[]
+  payments           Payment[]
+  kycDocuments       KycDocument[]
+  notifications      Notification[]
+  issuedOffers       IssuedOffer[]
+  competitionEntries CompetitionEntry[]
 
   @@index([email])
 }
@@ -440,6 +442,90 @@ model EquityTick {
   @@index([accountId, timestamp])
 }
 
+// ---------------------------------------------------------------------------
+// Competitions (module 7.2) — see src/server/competitions.ts. Unlike every
+// other 🟢 module in v1-build-plan.md, this one has no prototype at all
+// (checked: zero references in prototypes/back-office.jsx and
+// trader-portal.jsx) — only crm-specification.md §7's prose. Two things in
+// that spec are explicit open items, not implementation details, so they're
+// built as configuration rather than guessed:
+//   - §7.2: "Tie-breaker rule. Must be defined before launch." — required
+//     per-competition, not a hardcoded assumption.
+//   - §7.4: paid-entry contests can fall under gaming/lottery regulation;
+//     "obtain Cyprus legal advice before launch." legalSignOffConfirmed
+//     gates any competition with a non-zero entry fee from ever going
+//     active — see setCompetitionStatus() in competitions.ts.
+// ---------------------------------------------------------------------------
+
+enum CompetitionStatus {
+  draft
+  active
+  closed
+}
+
+enum RankingMetric {
+  return_pct
+  absolute_pnl
+}
+
+enum CompetitionEntryStatus {
+  active
+  disqualified
+}
+
+model Competition {
+  id                 String            @id @default(cuid())
+  name               String
+  startDate          DateTime
+  endDate            DateTime
+  entryFee           Decimal           @db.Decimal(14, 2) @default(0)
+  currency           String            @default("EUR")
+  entrantCap         Int?
+  demoAccountSize    Decimal           @db.Decimal(14, 2)
+  minTradesToQualify Int               @default(0)
+  rankingMetric      RankingMetric     @default(return_pct)
+  tieBreakerRule     String
+  // Ordered list of {rank, type: "cash"|"funded_account"|"free_challenge"|"discount", description, cashValue?}.
+  // Only "cash" entries have a quantifiable cost — see prizeCostCommitted() in competitions.ts.
+  prizeLadder Json
+
+  status                  CompetitionStatus @default(draft)
+  legalSignOffConfirmed   Boolean           @default(false)
+  legalSignOffNote        String?
+
+  createdAt   DateTime   @default(now())
+  createdById String?
+  createdBy   AdminUser? @relation(fields: [createdById], references: [id])
+
+  entries CompetitionEntry[]
+}
+
+// A competition entrant's demo account. Deliberately separate from Account
+// (the challenge-evaluation model) — a competition entry isn't a purchased
+// challenge and shouldn't inherit that model's phase/status/void semantics.
+// equity/tradesCount stand in for a real feed the same way Account's
+// manually-set equity fields do until 3.2/3.3 exist.
+model CompetitionEntry {
+  id            String      @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id])
+  personId      String
+  person        Person      @relation(fields: [personId], references: [id])
+
+  entryPaidAmount Decimal @db.Decimal(14, 2)
+  equity          Decimal @db.Decimal(14, 2)
+  tradesCount     Int     @default(0)
+
+  status             CompetitionEntryStatus @default(active)
+  disqualifiedReason String?
+
+  enteredAt DateTime @default(now())
+
+  @@unique([competitionId, personId])
+  @@index([competitionId])
+  @@index([personId])
+}
+
 model Withdrawal {
   id        String           @id @default(cuid())
   accountId String
@@ -513,12 +599,13 @@ model AdminUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions           AdminSession[]
-  createdChallenges  ChallengeType[]
-  decidedWithdrawals Withdrawal[]
-  notes              Note[]
-  createdCampaigns   OfferCampaign[]
-  issuedOffers       IssuedOffer[]
+  sessions            AdminSession[]
+  createdChallenges   ChallengeType[]
+  decidedWithdrawals  Withdrawal[]
+  notes               Note[]
+  createdCampaigns    OfferCampaign[]
+  issuedOffers        IssuedOffer[]
+  createdCompetitions Competition[]
 
   @@index([email])
 }

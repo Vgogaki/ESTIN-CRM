@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
+import { raiseSystemFlag } from "@/server/risk";
 
 /**
  * Module 6.1 — link different PEOPLE who share something. "Flag for review;
@@ -63,6 +64,17 @@ export function findLinks(subjectId: string, evidence: Map<string, Evidence>): F
 }
 
 const signalKey = (s: Signal) => `${s.type}:${s.value}`;
+
+/**
+ * A strong link puts a MEDIUM risk flag (6.7) on both people. Medium never blocks
+ * payouts: whether a link should is an open decision, so a reviewer must raise it to high.
+ * Idempotent per link, so a dismissed-then-reopened link doesn't pile up duplicates.
+ */
+async function flagLink(linkId: string, personAId: string, personBId: string) {
+  const summary = "Possible multiple accounts: this person shares a strong signal (same document, payment card or browser) with another trader. See Linked accounts.";
+  await raiseSystemFlag({ personId: personAId, type: "linked_accounts", summary, dedupeKey: `link:${linkId}` });
+  await raiseSystemFlag({ personId: personBId, type: "linked_accounts", summary, dedupeKey: `link:${linkId}` });
+}
 
 /** Gathers what `personId` has, then everyone else who has any of the same values. */
 async function loadEvidence(personId: string): Promise<Map<string, Evidence>> {
@@ -131,6 +143,7 @@ export async function scanPerson(personId: string): Promise<void> {
           after: { personAId, personBId, strength: link.strength, signals: link.signals.map((s) => s.type) },
           reason: "Two different people share something. Flagged for review — nothing was blocked.",
         });
+        if (link.strength === "strong") await flagLink(created.id, personAId, personBId);
         continue;
       }
 
@@ -141,6 +154,7 @@ export async function scanPerson(personId: string): Promise<void> {
       const merged = [...(existing.signals as unknown as Signal[]), ...added];
       const strength = merged.some((s) => s.type !== "shared_ip") ? "strong" : "weak";
       const reopen = existing.status === "dismissed";
+      if (strength === "strong" && existing.status !== "confirmed") await flagLink(existing.id, personAId, personBId);
       await db.accountLink.update({
         where: { id: existing.id },
         data: { signals: merged as unknown as Prisma.InputJsonValue, strength, ...(reopen ? { status: "open", resolvedAt: null, resolvedById: null } : {}) },

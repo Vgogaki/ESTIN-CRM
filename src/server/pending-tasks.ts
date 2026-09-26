@@ -4,6 +4,7 @@ import { getEligibleBreachedTraders } from "@/server/offers";
 import { listOpenReviews } from "@/server/countries";
 import { listOpenStrongLinks } from "@/server/account-links";
 import { listAwaitingStaff } from "@/server/support";
+import { listOpenFlags } from "@/server/risk";
 
 /**
  * The operations queue (spec §5.2, module 3.7) — everything waiting on
@@ -44,7 +45,7 @@ export async function getPendingTasks() {
     else if (r.hitTarget) readyToPass.push(acct);
   }
 
-  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals, offerLeads, countryReviews, linkedAccounts, supportThreads] =
+  const [passReview, kycSubmitted, fundedAccounts, identityFlags, pendingWithdrawals, offerLeads, countryReviews, linkedAccounts, supportThreads, riskFlagsAll] =
     await Promise.all([
       db.account.findMany({
         where: { phase: "pass_review", voidedAt: null },
@@ -64,8 +65,11 @@ export async function getPendingTasks() {
       listOpenReviews(),
       listOpenStrongLinks(),
       listAwaitingStaff(),
+      listOpenFlags(),
     ]);
 
+  // Automatic linked-account flags are already covered by the linked accounts bucket above.
+  const riskFlags = riskFlagsAll.filter((f) => f.type !== "linked_accounts");
   const fundedWithoutKyc = fundedAccounts.filter((a) => a.person.kycStatus !== "verified");
 
   const total =
@@ -79,7 +83,8 @@ export async function getPendingTasks() {
     offerLeads.length +
     countryReviews.length +
     linkedAccounts.length +
-    supportThreads.length;
+    supportThreads.length +
+    riskFlags.length;
 
   return {
     flagged,
@@ -93,6 +98,7 @@ export async function getPendingTasks() {
     countryReviews,
     linkedAccounts,
     supportThreads,
+    riskFlags,
     total,
   };
 }

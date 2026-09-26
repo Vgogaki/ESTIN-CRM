@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/server/audit";
 import { notifyTrader } from "@/server/notifications";
 import { ValidationError } from "@/server/errors";
 import { enforceCountry, hasOpenPayoutReview, openReview } from "@/server/countries";
+import { hasOpenHighFlag } from "@/server/risk";
 
 const { Decimal } = Prisma;
 const zero = new Decimal(0);
@@ -185,6 +186,9 @@ export async function decideWithdrawal(input: {
     }
     if (await hasOpenPayoutReview(withdrawal.account.personId)) {
       throw new ValidationError("This trader has an open country review for payouts — clear it before approving.");
+    }
+    if (await hasOpenHighFlag(withdrawal.account.personId)) {
+      throw new ValidationError("This trader has an open high-severity risk flag. Review or dismiss it (with a reason) before approving a payout.");
     }
     const kycActorId = await lastKycDecisionActorId(withdrawal.account.personId);
     if (kycActorId && kycActorId === input.adminId) {

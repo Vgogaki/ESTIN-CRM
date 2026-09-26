@@ -122,7 +122,7 @@ These are the ones most worth looking at first.
 ## B7. User 360 (7.3)
 
 - **Refunds and chargebacks** aren't on the profile because 2.3 isn't built (payment provider undecided).
-- **Risk flags** as a typed list (type, severity, reviewer; "open high-severity flags block payouts") don't exist; the profile shows what does (linked accounts, identity mismatch, country reviews). Build with 6.6-6.8 if wanted.
+- Risk flags now exist (6.7) and show on the profile's Risk profile card.
 - The profile is one long page, not tabs; the audit trail is capped at the latest 100 entries with no filtering or export.
 - KYC documents are shown as before (view restricted by `kyc.view`); no separate KYC history timeline beyond the audit trail.
 
@@ -153,6 +153,15 @@ These are the ones most worth looking at first.
 - Weak "look-alike" matching (same browser model, screen, timezone) is not done: too many false matches to be useful.
 - The device sighting is not yet used by any payout rule; whether a confirmed link should affect payouts is still open.
 
+## B11. Risk flags and profiles (6.7)
+
+- **Which automatic detectors should raise a flag, and at what severity, is undecided.** Only strong account links raise one today (medium). Identity mismatch, country reviews and KYC state are shown as signals but don't create flags, because each already blocks payouts by its own rule. Other candidates (rapid repeat breaches, unusual sign-in geography once 6.5 exists, copy-trading once 6.8 exists) wait for those modules.
+- **Whether a confirmed link should block payouts** (the pending decision in B2) is still open: a person must escalate a linked-account flag to high for now.
+- **No risk score or rating.** The profile shows the highest open flag; any weighted score needs a policy decision first.
+- Flags block payout **approval** only. They don't block a payout request, purchases, trading or logins, and there is no automatic account restriction.
+- A resolved flag can't be reopened (raise a new one); there is no bulk review, flag types list to filter by, or dedicated risk queue page beyond Pending tasks.
+- Automatic flags are raised when a link is created or gains a strong signal; flags for links that existed before this module were not back-filled (running the existing link rescan doesn't create them either).
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.7–6.8 Risk profiles / copy-trading detection.
+6.5 KYC-country vs IP mismatch · 6.8 Copy-trading / inverse-trading detection.

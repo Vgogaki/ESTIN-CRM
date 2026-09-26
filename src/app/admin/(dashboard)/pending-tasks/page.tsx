@@ -149,6 +149,12 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Open risk flags" count={tasks.riskFlags.length} tone="danger">
+        {tasks.riskFlags.map((f) => (
+          <TaskRow key={f.id} href={`/admin/traders/${f.personId}`} title={f.person.fullName} note={`[${f.severity}] ${f.summary}`} />
+        ))}
+      </TaskBlock>
+
       <TaskBlock title="Possible linked accounts — review" count={tasks.linkedAccounts.length} tone="danger">
         {tasks.linkedAccounts.map((l) => (
           <TaskRow

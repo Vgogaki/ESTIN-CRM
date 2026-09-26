@@ -329,6 +329,7 @@ model Person {
   linksAsB           AccountLink[]      @relation("AccountLinkB")
   supportThreads     SupportThread[]
   deviceSightings    DeviceSighting[]
+  riskFlags          RiskFlag[]
 
   @@index([email])
 }
@@ -1027,4 +1028,45 @@ model DeviceSighting {
 
   @@unique([personId, deviceHash])
   @@index([deviceHash])
+}
+enum RiskFlagSeverity {
+  low
+  medium
+  high
+}
+
+enum RiskFlagStatus {
+  open
+  reviewed
+  dismissed
+}
+
+enum RiskFlagSource {
+  system
+  admin
+}
+
+/// A concern about a person (module 6.7). An OPEN HIGH flag blocks payout approval,
+/// enforced in decideWithdrawal. Only staff can make a flag high: automatic flags
+/// are medium at most, because whether e.g. a confirmed link should block payouts
+/// is still an open decision. Never deleted; resolving needs a reason.
+model RiskFlag {
+  id           String           @id @default(cuid())
+  personId     String
+  person       Person           @relation(fields: [personId], references: [id])
+  type         String
+  source       RiskFlagSource
+  severity     RiskFlagSeverity
+  status       RiskFlagStatus   @default(open)
+  summary      String
+  /// Stops the system raising the same automatic flag twice (e.g. "link:<id>").
+  dedupeKey    String?
+  createdById  String?
+  createdAt    DateTime         @default(now())
+  reviewedById String?
+  reviewedAt   DateTime?
+  reviewReason String?
+
+  @@unique([personId, dedupeKey])
+  @@index([status, severity])
 }

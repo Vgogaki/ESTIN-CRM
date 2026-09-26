@@ -7,6 +7,8 @@ import { daysRemaining } from "@/server/expiry";
 import { planAdvance } from "@/server/phase-advance";
 import { linksForPerson } from "@/server/account-links";
 import { devicesForPerson } from "@/server/devices";
+import { riskProfile } from "@/server/risk";
+import RiskCard from "./risk-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { getPersonActivity } from "@/server/person-activity";
@@ -29,6 +31,7 @@ export default async function TraderDetailPage({
   if (!person) notFound();
 
   const links = await linksForPerson(person.id);
+  const risk = await riskProfile(person.id);
   const devices = hasPermission(admin.role.permissions, "risk.review") ? await devicesForPerson(person.id) : null;
   const activity = await getPersonActivity(person.id, {
     audit: hasPermission(admin.role.permissions, "auditLog.view"),
@@ -159,6 +162,25 @@ export default async function TraderDetailPage({
             decisionNote: w.decisionNote,
           })),
         )}
+      />
+      <RiskCard
+        personId={person.id}
+        canReview={hasPermission(admin.role.permissions, "risk.review")}
+        profile={{
+          level: risk.level,
+          blocksPayout: risk.blocksPayout,
+          signals: risk.signals,
+          flags: risk.flags.map((f) => ({
+            id: f.id,
+            type: f.type,
+            source: f.source,
+            severity: f.severity,
+            status: f.status,
+            summary: f.summary,
+            createdAt: f.createdAt.toISOString(),
+            reviewReason: f.reviewReason,
+          })),
+        }}
       />
       <PersonActivity activity={activity} devices={devices} />
     </div>

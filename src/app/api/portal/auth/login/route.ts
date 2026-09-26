@@ -4,6 +4,7 @@ import { loginTrader } from "@/server/auth/trader";
 import { requestIp, requestUserAgent } from "@/server/auth/guard";
 import { TRADER_SESSION_COOKIE } from "@/server/security/session";
 import { errorResponse } from "@/server/http";
+import { trackDevice } from "@/server/auth/device-cookie";
 
 const schema = z.object({
   email: z.string().email(),
@@ -33,6 +34,7 @@ export async function POST(request: Request) {
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
+    await trackDevice(response, person.id);
     return response;
   } catch (err) {
     return errorResponse(err);

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { findLinks, hashFingerprint, type Evidence } from "./account-links";
 
-function ev(parts: Partial<{ ips: string[]; docs: string[]; pay: string[] }> = {}): Evidence {
-  return { ips: new Set(parts.ips), kycChecksums: new Set(parts.docs), paymentFingerprints: new Set(parts.pay) };
+function ev(parts: Partial<{ ips: string[]; docs: string[]; pay: string[]; dev: string[] }> = {}): Evidence {
+  return { ips: new Set(parts.ips), kycChecksums: new Set(parts.docs), paymentFingerprints: new Set(parts.pay), deviceHashes: new Set(parts.dev) };
 }
 
 describe("findLinks", () => {
@@ -27,6 +27,13 @@ describe("findLinks", () => {
   it("treats a shared payment instrument as strong", () => {
     const m = new Map([["a", ev({ pay: ["f1"] })], ["b", ev({ pay: ["f1"] })]]);
     expect(findLinks("a", m)[0].strength).toBe("strong");
+  });
+
+  it("treats a shared browser device as strong", () => {
+    const m = new Map([["a", ev({ dev: ["d1"] })], ["b", ev({ dev: ["d1"] })], ["c", ev({ dev: ["d2"] })]]);
+    const r = findLinks("a", m);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ otherId: "b", strength: "strong", signals: [{ type: "shared_device", value: "d1" }] });
   });
 
   it("combines signals, and one strong signal makes the whole link strong", () => {

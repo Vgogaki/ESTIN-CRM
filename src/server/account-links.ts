@@ -14,21 +14,24 @@ import { ValidationError } from "@/server/errors";
  *       #5) supplies one
  *   - shared_ip  (weak)  households, offices, mobile carriers and VPNs all
  *       share addresses, so an IP alone never reaches the review queue
- * NOT built, and listed in docs/deferred-items.md: device (6.6 needs
- * fingerprinting) and address details (no address is collected).
+ *   - shared_device  (strong)  the same browser device id (module 6.6) signed
+ *       in as two people. A cookie id, not a true fingerprint — see devices.ts
+ * NOT built, and listed in docs/deferred-items.md: address details (no
+ * address is collected).
  */
-export type SignalType = "shared_ip" | "shared_kyc_document" | "shared_payment_instrument";
+export type SignalType = "shared_ip" | "shared_kyc_document" | "shared_payment_instrument" | "shared_device";
 export type Signal = { type: SignalType; value: string };
 
 export type Evidence = {
   ips: Set<string>;
   kycChecksums: Set<string>;
   paymentFingerprints: Set<string>;
+  deviceHashes: Set<string>;
 };
 
 export type FoundLink = { otherId: string; signals: Signal[]; strength: "weak" | "strong" };
 
-const emptyEvidence = (): Evidence => ({ ips: new Set(), kycChecksums: new Set(), paymentFingerprints: new Set() });
+const emptyEvidence = (): Evidence => ({ ips: new Set(), kycChecksums: new Set(), paymentFingerprints: new Set(), deviceHashes: new Set() });
 
 /** "unknown" is what requestIp() returns when no proxy header is present — it says nothing about who anyone is. */
 const IGNORED_IPS = new Set(["unknown", "", "::1", "127.0.0.1"]);
@@ -48,6 +51,7 @@ export function findLinks(subjectId: string, evidence: Map<string, Evidence>): F
     for (const ip of subject.ips) if (!IGNORED_IPS.has(ip) && other.ips.has(ip)) signals.push({ type: "shared_ip", value: ip });
     for (const c of subject.kycChecksums) if (other.kycChecksums.has(c)) signals.push({ type: "shared_kyc_document", value: c });
     for (const f of subject.paymentFingerprints) if (other.paymentFingerprints.has(f)) signals.push({ type: "shared_payment_instrument", value: f });
+    for (const h of subject.deviceHashes) if (other.deviceHashes.has(h)) signals.push({ type: "shared_device", value: h });
     if (signals.length === 0) continue;
     links.push({
       otherId,
@@ -69,30 +73,34 @@ async function loadEvidence(personId: string): Promise<Map<string, Evidence>> {
     return e;
   };
 
-  const [sessions, terms, registered, docs, payments] = await Promise.all([
+  const [sessions, terms, registered, docs, payments, devices] = await Promise.all([
     db.traderSession.findMany({ where: { personId }, select: { ipAddress: true } }),
     db.termsAcceptance.findMany({ where: { personId }, select: { ipAddress: true } }),
     db.auditLog.findMany({ where: { entityType: "Person", entityId: personId, action: "person.registered" }, select: { ipAddress: true } }),
     db.kycDocument.findMany({ where: { personId }, select: { checksum: true } }),
     db.payment.findMany({ where: { personId, paymentFingerprint: { not: null } }, select: { paymentFingerprint: true } }),
+    db.deviceSighting.findMany({ where: { personId }, select: { deviceHash: true } }),
   ]);
   const me = get(personId);
   for (const r of [...sessions, ...terms, ...registered]) if (r.ipAddress) me.ips.add(r.ipAddress);
   for (const d of docs) me.kycChecksums.add(d.checksum);
   for (const p of payments) me.paymentFingerprints.add(p.paymentFingerprint!);
+  for (const d of devices) me.deviceHashes.add(d.deviceHash);
 
   const ips = [...me.ips].filter((ip) => !IGNORED_IPS.has(ip));
-  const [oSessions, oTerms, oRegistered, oDocs, oPayments] = await Promise.all([
+  const [oSessions, oTerms, oRegistered, oDocs, oPayments, oDevices] = await Promise.all([
     ips.length ? db.traderSession.findMany({ where: { ipAddress: { in: ips }, personId: { not: personId } }, select: { personId: true, ipAddress: true } }) : [],
     ips.length ? db.termsAcceptance.findMany({ where: { ipAddress: { in: ips }, personId: { not: personId } }, select: { personId: true, ipAddress: true } }) : [],
     ips.length ? db.auditLog.findMany({ where: { action: "person.registered", ipAddress: { in: ips }, entityId: { not: personId } }, select: { entityId: true, ipAddress: true } }) : [],
     me.kycChecksums.size ? db.kycDocument.findMany({ where: { checksum: { in: [...me.kycChecksums] }, personId: { not: personId } }, select: { personId: true, checksum: true } }) : [],
     me.paymentFingerprints.size ? db.payment.findMany({ where: { paymentFingerprint: { in: [...me.paymentFingerprints] }, personId: { not: personId } }, select: { personId: true, paymentFingerprint: true } }) : [],
+    me.deviceHashes.size ? db.deviceSighting.findMany({ where: { deviceHash: { in: [...me.deviceHashes] }, personId: { not: personId } }, select: { personId: true, deviceHash: true } }) : [],
   ]);
   for (const r of [...oSessions, ...oTerms]) get(r.personId).ips.add(r.ipAddress);
   for (const r of oRegistered) if (r.ipAddress) get(r.entityId).ips.add(r.ipAddress);
   for (const r of oDocs) get(r.personId).kycChecksums.add(r.checksum);
   for (const r of oPayments) get(r.personId).paymentFingerprints.add(r.paymentFingerprint!);
+  for (const r of oDevices) get(r.personId).deviceHashes.add(r.deviceHash);
 
   return evidence;
 }

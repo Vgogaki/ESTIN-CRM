@@ -40,7 +40,7 @@ These are the ones most worth looking at first.
 
 ## B2. Multiple-account detection (6.1)
 
-- **Device linking** — needs device fingerprinting (6.6, after launch). *Build.*
+- **Device linking** — built in 6.6 as a cookie-based device id (see B10); true fingerprinting is not.
 - **Address linking** — no address is collected anywhere; needs a field on the person or on KYC. *Decision + Build.*
 - **Payment-instrument linking** works but stays empty until a payment provider supplies a fingerprint token. *Vendor.*
 - **Whether a confirmed link should affect payouts** — spec 6.1 says flag for review, do not auto-block; the later "open high-severity risk flags block payouts" rule (6.7) isn't built. *Decision.*
@@ -144,6 +144,15 @@ These are the ones most worth looking at first.
 - Commission is calculated on the amount paid in the order's own currency; there is no currency conversion, and no per-challenge exclusions.
 - Self-referral detection is a heuristic (own profile, same email, same card). It won't catch an affiliate buying for a friend with a different card, and it needs the affiliate to be linked to a trader profile for the profile and card checks.
 
+## B10. Device recognition (6.6)
+
+- **Not a true fingerprint.** It recognises a browser by a cookie we set. A determined person defeats it by clearing cookies, using a private window, another browser or another device. A commercial fingerprinting service (or our own collection of screen, fonts, canvas and hardware attributes) catches more, but it is a vendor choice and a heavier privacy step; deliberately not built.
+- **Privacy and consent (needs legal input before launch):** setting an identifier cookie for fraud prevention is generally treated as strictly necessary, but the privacy notice must say we do it and why, and whether a consent banner is required depends on the final site design and counsel's view. Nothing here has been reviewed by legal.
+- **Shared computers will flag.** Two family members or an internet café using one browser look like the same device. The flag is a review prompt only (dismiss with a note), never a block.
+- Recorded only at sign-in and registration (not on every page view), and not for staff. Sightings are never deleted automatically: a retention period is not set (decision #14 covers KYC data only).
+- Weak "look-alike" matching (same browser model, screen, timezone) is not done: too many false matches to be useful.
+- The device sighting is not yet used by any payout rule; whether a confirmed link should affect payouts is still open.
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection.
+6.5 KYC-country vs IP mismatch · 6.7–6.8 Risk profiles / copy-trading detection.

@@ -173,7 +173,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 6.6 | Device fingerprinting | 🔴 | |
+| 6.6 | Device fingerprinting | 🟡 | **Built as device recognition, not true fingerprinting.** Each browser gets a random first-party cookie (`estin_did`, 2 years, hashed in the database) when a trader registers or signs in; the profile's new **Devices** section (staff with `risk.review`) lists the browsers seen, with IP, browser and dates, and flags any also used by other people. Two different people signing in from the same browser now creates a **strong** link in 6.1 (flagged for review, never blocked; appears in Pending tasks). Verified live: same browser as two traders linked them; a separate client with its own cookie did not. **Limit, stated plainly:** clearing cookies, a private window or another browser looks like a new device, so this catches careless multi-accounting, not a determined one. Real fingerprinting is a vendor and privacy decision: see deferred-items.md B10 |
 | 6.7 | Trader risk profiles & flags | 🔴 | |
 | 6.8 | Copy-trading / inverse-trading detection | 🔴 | The opposing-positions attack across accounts; both incumbent systems have this |
 

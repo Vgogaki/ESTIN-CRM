@@ -6,6 +6,7 @@ import { evaluateAccount } from "@/server/rules";
 import { daysRemaining } from "@/server/expiry";
 import { planAdvance } from "@/server/phase-advance";
 import { linksForPerson } from "@/server/account-links";
+import { devicesForPerson } from "@/server/devices";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { getPersonActivity } from "@/server/person-activity";
@@ -28,6 +29,7 @@ export default async function TraderDetailPage({
   if (!person) notFound();
 
   const links = await linksForPerson(person.id);
+  const devices = hasPermission(admin.role.permissions, "risk.review") ? await devicesForPerson(person.id) : null;
   const activity = await getPersonActivity(person.id, {
     audit: hasPermission(admin.role.permissions, "auditLog.view"),
     support: hasPermission(admin.role.permissions, "support.manage"),
@@ -158,7 +160,7 @@ export default async function TraderDetailPage({
           })),
         )}
       />
-      <PersonActivity activity={activity} />
+      <PersonActivity activity={activity} devices={devices} />
     </div>
   );
 }

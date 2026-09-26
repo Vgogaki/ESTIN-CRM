@@ -328,6 +328,7 @@ model Person {
   linksAsA           AccountLink[]      @relation("AccountLinkA")
   linksAsB           AccountLink[]      @relation("AccountLinkB")
   supportThreads     SupportThread[]
+  deviceSightings    DeviceSighting[]
 
   @@index([email])
 }
@@ -1008,4 +1009,22 @@ model AffiliateCommission {
   voidReason    String?
 
   @@index([affiliateId, status])
+}
+/// A browser seen signing in as a person (module 6.6). The device id is a random
+/// first-party cookie, stored here only as a SHA-256 hash. Two different people
+/// sharing one is a strong signal for 6.1, but it is NOT a true fingerprint:
+/// clearing cookies or using another browser gives a new id.
+model DeviceSighting {
+  id          String   @id @default(cuid())
+  personId    String
+  person      Person   @relation(fields: [personId], references: [id])
+  deviceHash  String
+  ipAddress   String
+  userAgent   String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  seenCount   Int      @default(1)
+
+  @@unique([personId, deviceHash])
+  @@index([deviceHash])
 }

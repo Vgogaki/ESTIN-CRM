@@ -2,8 +2,10 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { getPersonActivity } from "@/server/person-activity";
+import type { devicesForPerson } from "@/server/devices";
 
 type Activity = Awaited<ReturnType<typeof getPersonActivity>>;
+type Devices = Awaited<ReturnType<typeof devicesForPerson>>;
 
 function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
   return (
@@ -21,7 +23,7 @@ const Empty = ({ text }: { text: string }) => <p className="text-sm text-sub">{t
 const date = (d: Date) => d.toLocaleDateString();
 
 /** Read-only sections that complete the User 360 view (module 7.3). Rendered on the server. */
-export default function PersonActivity({ activity }: { activity: Activity }) {
+export default function PersonActivity({ activity, devices }: { activity: Activity; devices: Devices | null }) {
   const { competitions, offers, countryReviews, supportThreads, audit } = activity;
   return (
     <div className="mt-5 flex flex-col gap-5">
@@ -65,6 +67,29 @@ export default function PersonActivity({ activity }: { activity: Activity }) {
           </ul>
         )}
       </Section>
+
+      {devices && (
+        <Section title="Devices" count={devices.length}>
+          {devices.length === 0 ? (
+            <Empty text="No sign-in from a recognised browser yet." />
+          ) : (
+            <ul className="flex flex-col gap-1.5 text-sm">
+              {devices.map((d) => (
+                <li key={d.id} className="flex items-start justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block truncate">{d.userAgent ?? "Unknown browser"}</span>
+                    <span className="text-xs text-sub">
+                      IP {d.ipAddress} · first seen {date(d.firstSeenAt)} · last seen {date(d.lastSeenAt)} · {d.seenCount} sign-in(s)
+                    </span>
+                  </span>
+                  {d.sharedWithPeople > 0 && <Badge tone="danger">also used by {d.sharedWithPeople} other person(s)</Badge>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-xs text-sub">A browser is recognised by a cookie. Clearing cookies or using another browser looks like a new device.</p>
+        </Section>
+      )}
 
       <Section title="Country reviews" count={countryReviews.length}>
         {countryReviews.length === 0 ? (

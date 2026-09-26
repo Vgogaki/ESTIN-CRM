@@ -8,7 +8,9 @@ import { planAdvance } from "@/server/phase-advance";
 import { linksForPerson } from "@/server/account-links";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
+import { getPersonActivity } from "@/server/person-activity";
 import TraderDetail from "./trader-detail";
+import PersonActivity from "./person-activity";
 
 export default async function TraderDetailPage({
   params,
@@ -26,6 +28,10 @@ export default async function TraderDetailPage({
   if (!person) notFound();
 
   const links = await linksForPerson(person.id);
+  const activity = await getPersonActivity(person.id, {
+    audit: hasPermission(admin.role.permissions, "auditLog.view"),
+    support: hasPermission(admin.role.permissions, "support.manage"),
+  });
 
   const accounts = person.accounts.map((a) => {
     const evalR = a.currentPhase
@@ -152,6 +158,7 @@ export default async function TraderDetailPage({
           })),
         )}
       />
+      <PersonActivity activity={activity} />
     </div>
   );
 }

@@ -98,7 +98,7 @@ These are the ones most worth looking at first.
 ## B4. Support / messaging (4.6)
 
 - Staff replies are emailed to the trader (4.5), but a trader's own email reply is not read back into the thread; they must reply in the portal.
-- **User 360 link (7.3)**: a thread links to the trader profile page instead.
+- Threads and the trader profile (7.3) link to each other.
 - **No rate limiting** on new threads or messages (a trader could flood support).
 - Attachments share the KYC encrypted store (`.kyc-storage/`); no virus scanning.
 - No assignment of a thread to a specific staff member, and no staff-only internal notes on a thread.
@@ -119,6 +119,13 @@ These are the ones most worth looking at first.
 - The tracker is informational: "settled" doesn't block a launch or change any rule, and there is no automatic check that the entered country rows match what the four sources said.
 - Per-country evidence (which source blocked which country) is only the free-text note on each rule; there is no structured link between a rule and the input behind it.
 
+## B7. User 360 (7.3)
+
+- **Refunds and chargebacks** aren't on the profile because 2.3 isn't built (payment provider undecided).
+- **Risk flags** as a typed list (type, severity, reviewer; "open high-severity flags block payouts") don't exist; the profile shows what does (linked accounts, identity mismatch, country reviews). Build with 6.6-6.8 if wanted.
+- The profile is one long page, not tabs; the audit trail is capped at the latest 100 entries with no filtering or export.
+- KYC documents are shown as before (view restricted by `kyc.view`); no separate KYC history timeline beyond the audit trail.
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.3 User 360 · 7.4 Affiliates · 7.5 Training content.
+6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.4 Affiliates · 7.5 Training content.

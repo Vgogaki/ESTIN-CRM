@@ -95,6 +95,14 @@ These are the ones most worth looking at first.
 - **Production hosting, secrets, backups, monitoring** — the contractor's Foundation Setup (`deployment.md`). The database user needs privileges to create pg-boss's own schema.
 - **Independent security review** before real customer data (build plan Part 1).
 
+## B4. Support / messaging (4.6)
+
+- **Email notification of replies**: in-app only until 4.5 (transactional email) exists.
+- **User 360 link (7.3)**: a thread links to the trader profile page instead.
+- **No rate limiting** on new threads or messages (a trader could flood support).
+- Attachments share the KYC encrypted store (`.kyc-storage/`); no virus scanning.
+- No assignment of a thread to a specific staff member, and no staff-only internal notes on a thread.
+
 ## H. Modules not started (for completeness)
 
-4.6 Support/messaging · 5.5 Finance reporting & export · 6.1 Multiple-account detection · 6.4 Jurisdiction matrix (business task) · 6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.3 User 360 · 7.4 Affiliates · 7.5 Training content.
+6.4 Jurisdiction matrix (business task) · 6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.3 User 360 · 7.4 Affiliates · 7.5 Training content.

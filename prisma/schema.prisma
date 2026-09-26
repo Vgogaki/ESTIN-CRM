@@ -108,6 +108,7 @@ enum NotificationType {
   payout_declined
   offer_received
   competition_results
+  support_reply
 }
 
 model Notification {
@@ -326,6 +327,7 @@ model Person {
   countryReviews     CountryReview[]
   linksAsA           AccountLink[]      @relation("AccountLinkA")
   linksAsB           AccountLink[]      @relation("AccountLinkB")
+  supportThreads     SupportThread[]
 
   @@index([email])
 }
@@ -621,6 +623,7 @@ model AdminUser {
   createdCampaigns    OfferCampaign[]
   issuedOffers        IssuedOffer[]
   createdCompetitions Competition[]
+  supportMessages     SupportMessage[]
 
   @@index([email])
 }
@@ -785,4 +788,73 @@ model AccountLink {
 
   @@unique([personAId, personBId])
   @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Support / messaging (module 4.6) — see src/server/support.ts.
+// Statuses per modules-to-design.md §4.6: Open / Awaiting trader / Resolved;
+// a trader reply reopens a resolved thread. Attachments reuse the encrypted
+// file storage (src/server/kyc-storage.ts); the row is metadata only.
+// ---------------------------------------------------------------------------
+
+enum SupportCategory {
+  account
+  payout
+  kyc
+  technical
+  other
+}
+
+enum SupportStatus {
+  open
+  awaiting_trader
+  resolved
+}
+
+enum SupportAuthor {
+  trader
+  admin
+}
+
+model SupportThread {
+  id            String          @id @default(cuid())
+  personId      String
+  person        Person          @relation(fields: [personId], references: [id])
+  subject       String
+  category      SupportCategory @default(other)
+  status        SupportStatus   @default(open)
+  createdAt     DateTime        @default(now())
+  lastMessageAt DateTime        @default(now())
+  resolvedAt    DateTime?
+
+  messages SupportMessage[]
+
+  @@index([personId])
+  @@index([status, lastMessageAt])
+}
+
+model SupportMessage {
+  id            String        @id @default(cuid())
+  threadId      String
+  thread        SupportThread @relation(fields: [threadId], references: [id])
+  authorType    SupportAuthor
+  authorAdminId String?
+  authorAdmin   AdminUser?    @relation(fields: [authorAdminId], references: [id])
+  body          String
+  createdAt     DateTime      @default(now())
+
+  attachments SupportAttachment[]
+
+  @@index([threadId, createdAt])
+}
+
+model SupportAttachment {
+  id           String         @id @default(cuid())
+  messageId    String
+  message      SupportMessage @relation(fields: [messageId], references: [id])
+  storageKey   String         @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  checksum     String
 }

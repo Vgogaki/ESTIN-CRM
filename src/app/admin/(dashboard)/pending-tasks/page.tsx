@@ -143,6 +143,12 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Support — awaiting a reply" count={tasks.supportThreads.length}>
+        {tasks.supportThreads.map((t) => (
+          <TaskRow key={t.id} href={`/admin/support/${t.id}`} title={t.person.fullName} note={t.subject} />
+        ))}
+      </TaskBlock>
+
       <TaskBlock title="Possible linked accounts — review" count={tasks.linkedAccounts.length} tone="danger">
         {tasks.linkedAccounts.map((l) => (
           <TaskRow

@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   "competitions.manage",
   "countries.manage",
   "risk.review",
+  "support.manage",
   "reports.view",
   "integrations.manage",
   "admins.manage",
@@ -44,6 +45,7 @@ export const DEFAULT_ROLES: Record<string, readonly Permission[]> = {
     "kyc.view",
     "offers.manage",
     "competitions.manage",
+    "support.manage",
     "reports.view",
   ],
   compliance: [
@@ -63,7 +65,7 @@ export const DEFAULT_ROLES: Record<string, readonly Permission[]> = {
     "refunds.create",
     "reports.view",
   ],
-  support: ["traders.view", "notes.create"],
+  support: ["traders.view", "notes.create", "support.manage"],
   read_only: ["traders.view", "kyc.view", "payouts.view", "reports.view"],
 };
 

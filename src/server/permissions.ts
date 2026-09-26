@@ -22,6 +22,7 @@ export const PERMISSIONS = [
   "risk.review",
   "support.manage",
   "email.manage",
+  "content.manage",
   "reports.view",
   "integrations.manage",
   "admins.manage",
@@ -48,6 +49,7 @@ export const DEFAULT_ROLES: Record<string, readonly Permission[]> = {
     "competitions.manage",
     "support.manage",
     "email.manage",
+    "content.manage",
     "reports.view",
   ],
   compliance: [

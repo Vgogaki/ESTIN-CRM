@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/email", label: "Email" },
+  { href: "/admin/training", label: "Training" },
   { href: "/admin/finance", label: "Finance" },
   { href: "/admin/offers", label: "Offers" },
   { href: "/admin/competitions", label: "Competitions" },

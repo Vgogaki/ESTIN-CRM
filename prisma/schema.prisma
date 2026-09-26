@@ -919,3 +919,32 @@ model JurisdictionInput {
   updatedById String?
   updatedAt   DateTime                @updatedAt
 }
+enum TrainingSection {
+  platform_how_to
+  challenge_rules
+  risk_management
+  trading_education
+}
+
+/// Admin-written learning content (module 7.5). Rule explanations are NOT stored
+/// here: they are generated from live challenge type settings so they can't drift.
+/// Never hard-deleted: archiving records who, when and why.
+model TrainingArticle {
+  id          String          @id @default(cuid())
+  section     TrainingSection
+  title       String
+  slug        String          @unique
+  summary     String?
+  body        String
+  videoUrl    String?
+  sortOrder   Int             @default(0)
+  published   Boolean         @default(false)
+  publishedAt DateTime?
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  archivedAt  DateTime?
+  archiveReason String?
+
+  @@index([section, published])
+}

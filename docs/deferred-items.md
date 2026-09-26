@@ -126,6 +126,14 @@ These are the ones most worth looking at first.
 - The profile is one long page, not tabs; the audit trail is capped at the latest 100 entries with no filtering or export.
 - KYC documents are shown as before (view restricted by `kyc.view`); no separate KYC history timeline beyond the audit trail.
 
+## B8. Training content (7.5)
+
+- **No launch content is written.** The library starts empty; the articles (platform guides, risk management, education) need to be written, and reviewed so nothing reads as personal investment advice. The disclaimer wording is a draft for legal review.
+- Article text is plain text (paragraphs and links); no images, headings, embedded video or rich formatting. Video is a link that opens in a new tab.
+- The generated rules explanation doesn't describe the consistency rule (the engine doesn't enforce one yet); it only notes that one applies. It shows only live (on-sale) challenges, not the version an existing trader bought, and English only.
+- No read tracking, search, categories beyond the four sections, or "required reading" gating.
+- Articles have no version history beyond the audit log's before/after.
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.4 Affiliates · 7.5 Training content.
+6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.4 Affiliates.

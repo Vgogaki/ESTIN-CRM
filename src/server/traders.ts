@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { determineAutoTransition, evaluateAccount } from "@/server/rules";
 import { notifyTrader } from "@/server/notifications";
+import { planAdvance } from "@/server/phase-advance";
 
 export async function listTraders(search?: string, statusFilter?: AccountStatus) {
   return db.person.findMany({
@@ -35,7 +36,7 @@ export async function getTraderDetail(personId: string) {
     include: {
       accounts: {
         include: {
-          challengeType: true,
+          challengeType: { include: { phases: { orderBy: { order: "asc" } } } },
           currentPhase: true,
           equityTicks: { orderBy: { timestamp: "desc" }, take: 20 },
           withdrawals: { orderBy: { requestedAt: "desc" } },
@@ -268,6 +269,85 @@ export async function resolveIdentityMismatch(input: {
     entityId: input.personId,
     reason: "Reviewed and confirmed same person.",
     ipAddress: input.ipAddress,
+  });
+
+  return updated;
+}
+
+/**
+ * Moves an account out of pass review into its next challenge phase (the
+ * funded stage, or a further evaluation phase). Until this existed, the
+ * only way to "fund" an account was hand-editing the coarse `phase` field,
+ * which left currentPhaseId on the evaluation rules — so a "funded" account
+ * had no profit split and could never request a payout.
+ *
+ * resetEquity is an explicit, audited choice rather than a hard-coded
+ * assumption: the spec is silent on whether a new phase starts from the
+ * account size, and carrying evaluation profit into a funded account would
+ * make the first payout pay out that profit (docs/decisions.md #18, open).
+ */
+export async function advanceAccount(input: {
+  accountId: string;
+  adminId: string;
+  ipAddress: string;
+  resetEquity: boolean;
+  note?: string;
+}) {
+  const account = await db.account.findUniqueOrThrow({
+    where: { id: input.accountId },
+    include: { person: true, challengeType: { include: { phases: true } } },
+  });
+
+  const plan = planAdvance({
+    accountPhase: account.phase,
+    accountStatus: account.status,
+    voided: account.voidedAt !== null,
+    currentPhaseId: account.currentPhaseId,
+    phases: account.challengeType.phases,
+    kycStatus: account.person.kycStatus,
+    kycTiming: account.challengeType.kycTiming,
+  });
+  if (!plan.ok) throw new ValidationError(plan.reason);
+
+  const target = plan.target;
+  const size = account.challengeType.accountSize;
+  const updated = await db.account.update({
+    where: { id: account.id },
+    data: {
+      currentPhaseId: target.id,
+      phase: target.isFunded ? "funded" : "evaluation",
+      phaseStartedAt: new Date(),
+      ...(input.resetEquity
+        ? { equity: size, balance: size, dayStartEquity: size, peakEquity: size, tradingDays: 0 }
+        : {}),
+    },
+  });
+
+  await writeAuditLog({
+    actorType: "admin",
+    actorId: input.adminId,
+    action: "account.advanced",
+    entityType: "Account",
+    entityId: account.id,
+    before: { ...serializeAccountState(account), currentPhaseId: account.currentPhaseId },
+    after: {
+      ...serializeAccountState(updated),
+      currentPhaseId: target.id,
+      phaseLabel: target.label,
+      resetEquity: input.resetEquity,
+    },
+    reason: input.note?.trim() || `Advanced to ${target.label}.`,
+    ipAddress: input.ipAddress,
+  });
+
+  await notifyTrader({
+    personId: account.personId,
+    type: "phase_passed",
+    title: target.isFunded ? "Your account is funded" : "Phase passed",
+    body: target.isFunded
+      ? `Your ${account.challengeType.name} account has been verified and is now funded.`
+      : `Your ${account.challengeType.name} account has moved on to ${target.label}.`,
+    link: "/portal",
   });
 
   return updated;

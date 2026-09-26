@@ -29,6 +29,8 @@ type Account = {
   minTradingDays: number;
   drawdownType: string;
   equityTickCount: number;
+  advance: { label: string; isFunded: boolean } | null;
+  advanceBlockedReason: string | null;
   timeLimitDays: number | null;
   daysRemaining: number | null;
   rule: {
@@ -187,6 +189,34 @@ export default function TraderDetail({
       router.refresh();
     } finally {
       setOverrideSaving(false);
+    }
+  }
+
+  // Advance-from-pass-review state
+  const [resetEquity, setResetEquity] = useState(true);
+  const [advanceNote, setAdvanceNote] = useState("");
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState(false);
+
+  async function advance() {
+    if (!account) return;
+    setAdvanceError(null);
+    setAdvancing(true);
+    try {
+      const res = await fetch(`/api/admin/accounts/${account.id}/advance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetEquity, note: advanceNote.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAdvanceError(data.error ?? "Failed to advance.");
+        return;
+      }
+      setAdvanceNote("");
+      router.refresh();
+    } finally {
+      setAdvancing(false);
     }
   }
 
@@ -397,6 +427,39 @@ export default function TraderDetail({
                     trading platform feed is connected (spec §9, still open) — until then, use
                     &quot;simulate account state&quot; below.
                   </p>
+                </Card>
+              )}
+
+              {canEdit && account.phase === "pass_review" && !account.voidedAt && (
+                <Card className="p-5">
+                  <h2 className="mb-1 font-display text-sm font-semibold">Pass review</h2>
+                  {account.advance ? (
+                    <>
+                      <p className="mb-3 text-xs text-sub">
+                        Target met. Next: <span className="text-ink">{account.advance.label}</span>
+                        {account.advance.isFunded ? " (funded — payouts become possible once KYC is verified)." : "."}
+                      </p>
+                      <label className="mb-3 flex items-start gap-2 text-sm">
+                        <input type="checkbox" checked={resetEquity} onChange={(e) => setResetEquity(e.target.checked)} className="mt-1" />
+                        <span>
+                          Start the new phase from the account size ({money(account.accountSize, account.currency)})
+                          <span className="block text-xs text-sub">
+                            Recommended: otherwise evaluation profit carries into the new phase and, for a funded
+                            account, would be paid out. The spec doesn&apos;t say either way — recorded in the audit log.
+                          </span>
+                        </span>
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        <Input value={advanceNote} onChange={(e) => setAdvanceNote(e.target.value)} placeholder="Review note (optional) — recorded in the audit log" />
+                        {advanceError && <Alert tone="danger">{advanceError}</Alert>}
+                        <Button className="w-fit" disabled={advancing} onClick={advance}>
+                          {advancing ? "Advancing…" : `Advance to ${account.advance.label}`}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <Alert tone="warning">{account.advanceBlockedReason ?? "This account can’t be advanced."}</Alert>
+                  )}
                 </Card>
               )}
 

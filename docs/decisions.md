@@ -41,4 +41,5 @@
 | 14 | KYC refresh policy (how often verified documents must be renewed) | KYC |
 | 15 | Currency display: prototypes show $, business prices in € | All screens |
 | 16 | **Minimum trading days.** Rulebook v1.0 says none; the prototypes default to 3 as an anti-luck control. Confirm which applies | Rules engine, pass logic |
+| 18 | **What happens to equity and trading days when an account moves to its next phase.** Spec is silent. Built as an explicit, audited choice on the advance action, defaulting to *reset to the account size* (otherwise evaluation profit would be paid out on a funded account). Confirm this is right, and whether it should be fixed rather than chosen each time | Phase progression, payouts |
 | 17 | **Trailing drawdown reference.** Rulebook v1.0 uses the end-of-day high-water mark; the prototypes track the intraday peak. Build to the rulebook unless changed | Rules engine |

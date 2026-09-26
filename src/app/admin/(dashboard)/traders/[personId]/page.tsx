@@ -4,6 +4,7 @@ import { hasPermission } from "@/server/permissions";
 import { getTraderDetail } from "@/server/traders";
 import { evaluateAccount } from "@/server/rules";
 import { daysRemaining } from "@/server/expiry";
+import { planAdvance } from "@/server/phase-advance";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import TraderDetail from "./trader-detail";
@@ -39,6 +40,19 @@ export default async function TraderDetailPage({
         })
       : null;
 
+    const plan =
+      a.phase === "pass_review"
+        ? planAdvance({
+            accountPhase: a.phase,
+            accountStatus: a.status,
+            voided: a.voidedAt !== null,
+            currentPhaseId: a.currentPhaseId,
+            phases: a.challengeType.phases,
+            kycStatus: person.kycStatus,
+            kycTiming: a.challengeType.kycTiming,
+          })
+        : null;
+
     return {
       id: a.id,
       orderRef: a.orderRef,
@@ -58,6 +72,8 @@ export default async function TraderDetailPage({
       minTradingDays: a.currentPhase?.minTradingDays ?? 0,
       drawdownType: a.currentPhase?.drawdownType ?? "trailing",
       equityTickCount: a.equityTicks.length,
+      advance: plan?.ok ? { label: plan.target.label, isFunded: plan.target.isFunded } : null,
+      advanceBlockedReason: plan && !plan.ok ? plan.reason : null,
       timeLimitDays: a.currentPhase?.timeLimitDays ?? null,
       daysRemaining: a.currentPhase
         ? daysRemaining({

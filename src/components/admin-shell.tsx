@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/offers", label: "Offers" },
   { href: "/admin/competitions", label: "Competitions" },
+  { href: "/admin/countries", label: "Countries" },
   { href: "/admin/challenge-types", label: "Challenge types" },
   { href: "/admin/test-tools", label: "Test tools" },
 ];

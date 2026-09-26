@@ -4,6 +4,7 @@ import { ValidationError } from "@/server/errors";
 import { CURRENT_TERMS_VERSION } from "@/server/terms";
 import { notifyTrader } from "@/server/notifications";
 import { tryRedeemOffer } from "@/server/offers";
+import { enforceCountry, openReview } from "@/server/countries";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -44,6 +45,15 @@ export async function createOrder(input: CreateOrderInput) {
     throw new ValidationError("This challenge type is not currently available.", 422);
   }
 
+  // A blocked country is refused outright. Checkout must ask first (GET
+  // /api/v1/country-check) — by the time an order reaches this system the
+  // payment has already been taken, and there is no refund flow yet (2.3).
+  const purchaseAction = await enforceCountry({
+    countryCode: input.country,
+    stage: "purchase",
+    ipAddress: input.ipAddress,
+  });
+
   const email = input.email.trim().toLowerCase();
   let person = await db.person.findUnique({ where: { email } });
   let identityMismatch = false;
@@ -75,6 +85,10 @@ export async function createOrder(input: CreateOrderInput) {
       reason: `Order ${input.orderRef}: name on this order differs from the name on file for this email. Purchase was not blocked; payouts are, until reviewed.`,
       ipAddress: input.ipAddress,
     });
+  }
+
+  if (purchaseAction === "review") {
+    await openReview({ personId: person.id, stage: "purchase", countryCode: input.country });
   }
 
   const firstPhase = challengeType.phases[0];

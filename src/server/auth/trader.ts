@@ -6,6 +6,7 @@ import { isLockedOut, recordFailedAttempt, resetLockout } from "@/server/securit
 import { createTraderSession, destroyTraderSession } from "@/server/security/session";
 import { generateOpaqueToken, hashToken } from "@/server/security/tokens";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
+import { enforceCountry, openReview } from "@/server/countries";
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
@@ -29,6 +30,12 @@ export async function registerTrader(input: {
   if (!isPasswordAcceptable(input.password)) {
     throw new AuthError("Password must be at least 10 characters.", 400);
   }
+
+  const countryAction = await enforceCountry({
+    countryCode: input.country,
+    stage: "registration",
+    ipAddress: input.ipAddress,
+  });
 
   const existing = await db.person.findUnique({ where: { email } });
   if (existing) {
@@ -55,6 +62,10 @@ export async function registerTrader(input: {
     entityId: person.id,
     ipAddress: input.ipAddress,
   });
+
+  if (countryAction === "review") {
+    await openReview({ personId: person.id, stage: "registration", countryCode: input.country });
+  }
 
   const verificationToken = await issueEmailVerification(person.id, person.email);
 

@@ -18,6 +18,7 @@ export const PERMISSIONS = [
   "challengeTypes.edit",
   "offers.manage",
   "competitions.manage",
+  "countries.manage",
   "reports.view",
   "integrations.manage",
   "admins.manage",
@@ -50,6 +51,7 @@ export const DEFAULT_ROLES: Record<string, readonly Permission[]> = {
     "kyc.view",
     "kyc.decide",
     "kyc.override",
+    "countries.manage",
     "auditLog.view",
   ],
   finance: [

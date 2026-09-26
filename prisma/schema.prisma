@@ -323,6 +323,7 @@ model Person {
   notifications      Notification[]
   issuedOffers       IssuedOffer[]
   competitionEntries CompetitionEntry[]
+  countryReviews     CountryReview[]
 
   @@index([email])
 }
@@ -678,4 +679,62 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorType, actorId])
   @@index([timestamp])
+}
+
+// ---------------------------------------------------------------------------
+// Restricted countries (module 6.3) — see src/server/countries.ts.
+// The rows ARE the list: none are seeded, because what belongs on it is a
+// legal/business decision (docs/decisions.md #11), not a development one —
+// "do not ship a default list copied from elsewhere" (modules-to-design.md
+// §6.1–6.5). A country with no row is allowed at every stage.
+// ---------------------------------------------------------------------------
+
+enum CountryAction {
+  allowed
+  review
+  blocked
+}
+
+enum CountryStage {
+  registration
+  purchase
+  trading
+  payout
+}
+
+enum CountryReviewStatus {
+  open
+  cleared
+}
+
+model CountryRule {
+  id          String        @id @default(cuid())
+  countryCode String        @unique
+  registration CountryAction @default(allowed)
+  purchase     CountryAction @default(allowed)
+  // Stored for completeness (spec: applied separately to all four), but
+  // nothing can enforce it until a trading platform exists (3.3).
+  trading      CountryAction @default(allowed)
+  payout       CountryAction @default(allowed)
+  note         String?
+  updatedAt    DateTime      @updatedAt
+  updatedById  String?
+}
+
+// A "review" outcome: the action isn't blocked, but a person needs a human
+// look. Open payout-stage reviews block payout approval (countries.ts).
+model CountryReview {
+  id          String              @id @default(cuid())
+  personId    String
+  person      Person              @relation(fields: [personId], references: [id])
+  stage       CountryStage
+  countryCode String
+  status      CountryReviewStatus @default(open)
+  createdAt   DateTime            @default(now())
+  resolvedAt  DateTime?
+  resolvedById String?
+  resolutionNote String?
+
+  @@index([personId])
+  @@index([status])
 }

@@ -143,6 +143,17 @@ export default async function PendingTasksPage() {
         ))}
       </TaskBlock>
 
+      <TaskBlock title="Country review needed" count={tasks.countryReviews.length} tone="danger">
+        {tasks.countryReviews.map((r) => (
+          <TaskRow
+            key={r.id}
+            href="/admin/countries"
+            title={r.person.fullName}
+            note={`${r.countryCode} · ${r.stage}`}
+          />
+        ))}
+      </TaskBlock>
+
       <TaskBlock title="Payouts pending decision" count={tasks.pendingWithdrawals.length}>
         {tasks.pendingWithdrawals.map((w) => (
           <TaskRow

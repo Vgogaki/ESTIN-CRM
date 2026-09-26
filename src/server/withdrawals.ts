@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { notifyTrader } from "@/server/notifications";
 import { ValidationError } from "@/server/errors";
+import { enforceCountry, hasOpenPayoutReview, openReview } from "@/server/countries";
 
 const { Decimal } = Prisma;
 const zero = new Decimal(0);
@@ -68,6 +69,15 @@ export async function requestWithdrawal(input: { personId: string; accountId: st
   }
   if (!account.person.twoFactorEnabledAt) {
     throw new ValidationError("Two-factor authentication is required before requesting a payout.");
+  }
+  const countryAction = await enforceCountry({
+    countryCode: account.person.country,
+    stage: "payout",
+    ipAddress: input.ipAddress,
+    personId: input.personId,
+  });
+  if (countryAction === "review") {
+    await openReview({ personId: input.personId, stage: "payout", countryCode: account.person.country });
   }
   if (account.withdrawals.some((w) => w.status === "pending")) {
     throw new ValidationError("A payout request is already pending for this account.");
@@ -153,7 +163,7 @@ export async function decideWithdrawal(input: {
 }) {
   const withdrawal = await db.withdrawal.findUniqueOrThrow({
     where: { id: input.withdrawalId },
-    include: { account: { include: { challengeType: true } } },
+    include: { account: { include: { challengeType: true, person: true } } },
   });
 
   if (withdrawal.status !== "pending") {
@@ -163,6 +173,19 @@ export async function decideWithdrawal(input: {
     throw new ValidationError("A reason is required when declining a payout.");
   }
   if (input.decision === "approved") {
+    // CLAUDE.md: payout approval is blocked unless KYC is verified AND there
+    // is no unresolved identity mismatch — re-checked here, at the moment of
+    // approval, not only when the request was made. Same for a payout-stage
+    // country review (6.3).
+    if (withdrawal.account.person.kycStatus !== "verified") {
+      throw new ValidationError("KYC must be verified before a payout can be approved.");
+    }
+    if (withdrawal.account.person.identityMismatch) {
+      throw new ValidationError("This trader has an unresolved identity mismatch — resolve it before approving a payout.");
+    }
+    if (await hasOpenPayoutReview(withdrawal.account.personId)) {
+      throw new ValidationError("This trader has an open country review for payouts — clear it before approving.");
+    }
     const kycActorId = await lastKycDecisionActorId(withdrawal.account.personId);
     if (kycActorId && kycActorId === input.adminId) {
       throw new ValidationError(

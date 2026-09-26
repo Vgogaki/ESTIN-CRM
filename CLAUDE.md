@@ -68,3 +68,5 @@ Deliberately deferred (vendor choices, not architecture): payment provider, KYC 
 - When a module depends on an open decision, build it so the decision is a configuration value, and flag it.
 - Use the brand direction from `reference/brand/`: deep navy and near-black backgrounds, electric blue accent, premium and institutional in tone. The prototypes already implement this palette.
 - Update `docs/v1-build-plan.md` module statuses as work completes.
+- Record anything you could not build, or only partly built, in `docs/deferred-items.md` so it can be revisited. Don't leave it only in a status note.
+- Keep dependencies minimal and pinned. Read `docs/dependencies.md` before adding or updating a package: every version is exact, the lockfile is committed, and nothing is updated without the tests passing. Do not run `npm audit fix --force` or `npm update` blindly.

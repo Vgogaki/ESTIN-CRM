@@ -12,6 +12,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [country, setCountry] = useState("CY");
   const [password, setPassword] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export default function RegisterPage() {
     const res = await fetch("/api/portal/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, email, country, password }),
+      body: JSON.stringify({ fullName, email, country, password, marketingConsent }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -40,10 +41,7 @@ export default function RegisterPage() {
       <Card className="p-6">
         <h1 className="mb-5 font-display text-lg font-semibold">Create your account</h1>
         {message ? (
-          <Alert tone="success">
-            {message} (Dev note: no email provider is configured yet — check the server log for
-            the verification link.)
-          </Alert>
+          <Alert tone="success">{message}</Alert>
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field label="Full name">
@@ -73,6 +71,15 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </Field>
+            <label className="flex items-start gap-2 text-sm text-sub">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={marketingConsent}
+                onChange={(e) => setMarketingConsent(e.target.checked)}
+              />
+              Send me offers and promotions by email (optional, you can change this any time).
+            </label>
             {error && <Alert tone="danger">{error}</Alert>}
             <Button type="submit" className="w-full">
               Create account

@@ -8,6 +8,8 @@ import { generateOpaqueToken, hashToken } from "@/server/security/tokens";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
 import { enforceCountry, openReview } from "@/server/countries";
 import { scanPerson } from "@/server/account-links";
+import { queueEmail } from "@/server/email/outbox";
+import { appBaseUrl } from "@/server/email/transport";
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
@@ -24,6 +26,8 @@ export async function registerTrader(input: {
   email: string;
   country: string;
   password: string;
+  /** Opt-in to offers and promotions. Off unless the trader ticks the box. */
+  marketingConsent?: boolean;
   ipAddress: string;
 }) {
   const email = input.email.trim().toLowerCase();
@@ -52,6 +56,7 @@ export async function registerTrader(input: {
       email,
       country: input.country,
       passwordHash,
+      marketingConsent: input.marketingConsent === true,
     },
   });
 
@@ -61,6 +66,7 @@ export async function registerTrader(input: {
     action: "person.registered",
     entityType: "Person",
     entityId: person.id,
+    after: { marketingConsent: input.marketingConsent === true },
     ipAddress: input.ipAddress,
   });
 
@@ -87,10 +93,15 @@ export async function issueEmailVerification(personId: string, email: string) {
     },
   });
 
-  // No transactional email provider is configured yet (spec §4.5, still
-  // open). Until then, the link is logged server-side so the flow is
-  // testable end to end; nothing is emailed to the trader.
-  console.log(`[dev] Email verification link for ${email}: /portal/verify-email?token=${token}`);
+  // With EMAIL_DRIVER=console (the default until a provider is chosen, spec
+  // 4.5) the rendered email, link included, is printed to the server log.
+  const person = await db.person.findUnique({ where: { id: personId }, select: { fullName: true } });
+  await queueEmail({
+    templateKey: "verify_email",
+    toEmail: email,
+    personId,
+    vars: { name: person?.fullName ?? "", link: `${appBaseUrl()}/portal/verify-email?token=${token}` },
+  });
 
   return token;
 }
@@ -219,7 +230,12 @@ export async function requestPasswordReset(email: string) {
     },
   });
 
-  console.log(`[dev] Password reset link for ${person.email}: /portal/reset-password?token=${token}`);
+  await queueEmail({
+    templateKey: "password_reset",
+    toEmail: person.email,
+    personId: person.id,
+    vars: { name: person.fullName, link: `${appBaseUrl()}/portal/reset-password?token=${token}` },
+  });
 }
 
 export async function resetPassword(token: string, newPassword: string) {

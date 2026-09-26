@@ -9,8 +9,8 @@ the rules that keep that from happening here. Checked 26 September 2026.
 
 | | Count |
 |---|---|
-| Packages we chose to depend on — **runtime** | **12** |
-| Packages we chose to depend on — **development only** (tests, linting, build tooling) | **13** |
+| Packages we chose to depend on — **runtime** | **13** |
+| Packages we chose to depend on — **development only** (tests, linting, build tooling) | **14** |
 | Everything installed, including packages *those* pull in | 554 |
 | …of which ship to production | ~200 |
 
@@ -19,7 +19,7 @@ Prisma, ESLint and Tailwind's own dependencies — not by things added for this
 project. **No package was added for a feature that could reasonably be a few
 lines of our own code.** There are no CMS-style "plug-ins".
 
-## Runtime (12)
+## Runtime (13)
 
 | Package | Why | Notes |
 |---|---|---|
@@ -30,6 +30,7 @@ lines of our own code.** There are no CMS-style "plug-ins".
 | `otplib` | Two-factor codes | |
 | `pg-boss` | Scheduled jobs (account expiry) | Keeps its own schema in our Postgres |
 | `dotenv` | Reads `.env` for scripts | |
+| `nodemailer` | Sends email through any provider's SMTP relay (module 4.5) | Added 26 Sep 2026. Zero sub-dependencies, long-established. Chosen over a vendor's own package so the email provider stays a settings choice, not a code dependency. Its type definitions (`@types/nodemailer`) are dev-only |
 
 ## Rules that prevent the problem
 

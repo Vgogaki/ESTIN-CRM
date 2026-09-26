@@ -3,6 +3,7 @@ import { getCurrentTrader } from "@/server/auth/guard";
 import { listNotifications, markAllNotificationsRead } from "@/server/notifications";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import MarketingToggle from "./marketing-toggle";
 
 export default async function NotificationsPage() {
   const trader = await getCurrentTrader();
@@ -16,6 +17,7 @@ export default async function NotificationsPage() {
   return (
     <div>
       <PageHeader title="Notifications" backHref="/portal" backLabel="Your account" />
+      <MarketingToggle initial={trader.marketingConsent} />
       {notifications.length === 0 ? (
         <Card className="p-6 text-sm text-sub">No notifications yet.</Card>
       ) : (

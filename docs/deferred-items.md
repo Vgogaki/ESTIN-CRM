@@ -67,7 +67,7 @@ These are the ones most worth looking at first.
 
 - **Payment provider (2.2)** and **refunds / chargebacks (2.3)** — decision #5.
 - **Payout rails (5.3)** — decision #6. Consequence: a payout can be approved but never marked *paid*; that status is deliberately unreachable so nobody can record money as sent that wasn't. `Withdrawal.providerReference` is ready for it.
-- **Transactional email (4.5)** — verification links, password resets and notifications are console logs / in-app only.
+- **Choosing the email provider (4.5)** — the email system is built and verified against a test SMTP server, but until a provider is chosen and its `EMAIL_DRIVER=smtp`, `SMTP_URL`, `EMAIL_FROM` settings are filled in, nothing is delivered (messages are recorded and printed to the server log). Also needs the sending domain's SPF/DKIM/DMARC set up for deliverability, which only the domain owner / contractor can do.
 - **KYC document storage backend** — currently encrypted files on local disk (`.kyc-storage/`); needs object storage before production. Retention/refresh policy is decision #14.
 
 ## E. Needs a decision, not code
@@ -97,11 +97,21 @@ These are the ones most worth looking at first.
 
 ## B4. Support / messaging (4.6)
 
-- **Email notification of replies**: in-app only until 4.5 (transactional email) exists.
+- Staff replies are emailed to the trader (4.5), but a trader's own email reply is not read back into the thread; they must reply in the portal.
 - **User 360 link (7.3)**: a thread links to the trader profile page instead.
 - **No rate limiting** on new threads or messages (a trader could flood support).
 - Attachments share the KYC encrypted store (`.kyc-storage/`); no virus scanning.
 - No assignment of a thread to a specific staff member, and no staff-only internal notes on a thread.
+
+## B5. Email (4.5)
+
+- **Delivery-status tracking**: "sent" means the provider accepted the message. Bounces, spam complaints and opens are not fed back (needs the provider's webhooks, so it waits for the vendor choice).
+- **No email for events that have no trigger yet**: "account expiring soon" and risk / general system notices (see F), "payout paid" (5.3 blocked), "KYC requested".
+- Templates are plain text (rendered as simple HTML with clickable links); no branded HTML layout or logo.
+- Templates are English only.
+- Marketing consent is a single opt-in (registration box or the toggle on the trader's Notifications page). Existing traders start opted out. There is no consent history beyond the audit log, and the wording of the checkbox is for legal to approve.
+- Admin edits to a template apply to emails queued afterwards; there is no preview or version history (the audit log keeps the before and after text).
+- Verification and password-reset tokens are still returned by the register API for testing convenience and appear in the `console` driver's log output; both should be reviewed before production.
 
 ## H. Modules not started (for completeness)
 

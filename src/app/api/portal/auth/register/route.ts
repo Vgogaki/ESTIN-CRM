@@ -9,6 +9,7 @@ const schema = z.object({
   email: z.string().email(),
   country: z.string().length(2),
   password: z.string().min(10),
+  marketingConsent: z.boolean().optional(),
 });
 
 export async function POST(request: Request) {

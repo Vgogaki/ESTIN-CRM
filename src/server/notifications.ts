@@ -1,11 +1,12 @@
 import type { NotificationType } from "@prisma/client";
 import { db } from "@/server/db";
+import { queueEmail } from "@/server/email/outbox";
+import { appBaseUrl } from "@/server/email/transport";
 
 /**
- * Module 4.4 — in-app notifications centre. Email delivery (4.5, same
- * table in modules-to-design.md) is a separate, still-unbuilt concern
- * blocked on a transactional email provider decision — see
- * docs/decisions.md. Callers across the codebase (orders, the 3.4 breach/
+ * Module 4.4 — in-app notifications centre, with the email copy (4.5) queued
+ * alongside it: every notification type has an email template (see
+ * src/server/email/defaults.ts). Callers across the codebase (orders, the 3.4 breach/
  * pass automation, the 3.5 expiry sweep, KYC review) call notifyTrader()
  * at the point each event already happens, rather than this module trying
  * to infer events after the fact.
@@ -17,7 +18,7 @@ export async function notifyTrader(input: {
   body: string;
   link?: string;
 }) {
-  return db.notification.create({
+  const notification = await db.notification.create({
     data: {
       personId: input.personId,
       type: input.type,
@@ -26,6 +27,23 @@ export async function notifyTrader(input: {
       link: input.link,
     },
   });
+
+  // Email copy (4.5). queueEmail never throws, so a mail problem can't undo the event.
+  const person = await db.person.findUnique({ where: { id: input.personId }, select: { email: true, fullName: true } });
+  if (person) {
+    await queueEmail({
+      templateKey: input.type,
+      toEmail: person.email,
+      personId: input.personId,
+      vars: {
+        name: person.fullName,
+        title: input.title,
+        body: input.body,
+        link: `${appBaseUrl()}${input.link ?? "/portal"}`,
+      },
+    });
+  }
+  return notification;
 }
 
 export async function listNotifications(personId: string) {

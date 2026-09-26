@@ -858,3 +858,42 @@ model SupportAttachment {
   sizeBytes    Int
   checksum     String
 }
+
+enum EmailStatus {
+  queued
+  sent
+  failed
+  skipped
+}
+
+/// Admin-editable wording for each transactional email. A row overrides the
+/// built-in default in src/server/email/defaults.ts; no row means the default.
+model EmailTemplate {
+  key         String   @id
+  subject     String
+  body        String
+  enabled     Boolean  @default(true)
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// Every email the system tries to send. Rows are kept (sent or not) so staff
+/// can see what a trader was told; failed rows are retried by the background job.
+model EmailOutbox {
+  id                String      @id @default(cuid())
+  personId          String?
+  toEmail           String
+  templateKey       String
+  subject           String
+  body              String
+  marketing         Boolean     @default(false)
+  status            EmailStatus @default(queued)
+  attempts          Int         @default(0)
+  lastError         String?
+  providerMessageId String?
+  createdAt         DateTime    @default(now())
+  sentAt            DateTime?
+
+  @@index([status, createdAt])
+  @@index([personId])
+}

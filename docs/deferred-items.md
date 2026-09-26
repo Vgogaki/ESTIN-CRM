@@ -134,6 +134,16 @@ These are the ones most worth looking at first.
 - No read tracking, search, categories beyond the four sections, or "required reading" gating.
 - Articles have no version history beyond the audit log's before/after.
 
+## B9. Affiliates (7.4)
+
+- **Decision #7 is still open**: whether affiliates ship in V1, and the commission model. Built with a flat percentage per affiliate (no default); tiered or per-sale-fixed models, and a holding period before commission can be approved, aren't built.
+- **Automatic clawback on refund or chargeback** waits for 2.3 (payment provider). Until then staff void a commission by hand, and **a commission already paid can't be reversed in the system** (money owed back would need to be tracked outside it, or netted against the next commission).
+- **No affiliate dashboard or login.** Affiliates can't see their own sales or earnings; staff see them. Building it needs a separate affiliate login (a new user type).
+- **No payout to affiliates**: rails aren't chosen (decision #6), so "paid" is a manual record with a reference, not a transfer. There is no batching, statement, tax or invoice handling.
+- **No referral links or click tracking.** Attribution relies on checkout sending `affiliate_code` with the order; the marketing site / checkout must implement that.
+- Commission is calculated on the amount paid in the order's own currency; there is no currency conversion, and no per-challenge exclusions.
+- Self-referral detection is a heuristic (own profile, same email, same card). It won't catch an affiliate buying for a friend with a different card, and it needs the affiliate to be linked to a trader profile for the profile and card checks.
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection · 7.4 Affiliates.
+6.5 KYC-country vs IP mismatch · 6.6–6.8 Device fingerprinting / risk profiles / copy-trading detection.

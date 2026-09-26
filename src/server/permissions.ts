@@ -23,6 +23,7 @@ export const PERMISSIONS = [
   "support.manage",
   "email.manage",
   "content.manage",
+  "affiliates.manage",
   "reports.view",
   "integrations.manage",
   "admins.manage",

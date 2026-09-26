@@ -948,3 +948,64 @@ model TrainingArticle {
 
   @@index([section, published])
 }
+enum AffiliateStatus {
+  active
+  suspended
+}
+
+enum CommissionStatus {
+  pending
+  approved
+  paid
+  voided
+}
+
+/// A referral partner (module 7.4). The commission rate is per affiliate and has
+/// no default: the commission model is an open decision (#7), so a person must
+/// choose it for each affiliate. Never hard-deleted; suspend instead.
+model Affiliate {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  code          String          @unique
+  commissionPct Decimal         @db.Decimal(5, 2)
+  status        AffiliateStatus @default(active)
+  /// If the affiliate is also a trader, link them so self-referral can be detected.
+  personId      String?
+  note          String?
+  createdById   String?
+  createdAt     DateTime        @default(now())
+
+  commissions AffiliateCommission[]
+}
+
+/// One commission per successful payment (unique on paymentId, so a replayed
+/// order can never pay twice). The rate and base are snapshotted at the time.
+model AffiliateCommission {
+  id            String           @id @default(cuid())
+  affiliateId   String
+  affiliate     Affiliate        @relation(fields: [affiliateId], references: [id])
+  paymentId     String           @unique
+  orderRef      String
+  baseAmount    Decimal          @db.Decimal(14, 2)
+  currency      String
+  ratePct       Decimal          @db.Decimal(5, 2)
+  amount        Decimal          @db.Decimal(14, 2)
+  status        CommissionStatus @default(pending)
+  /// Set when the order looks like the affiliate referring themselves; must be
+  /// reviewed (approved with a note) before it can be paid.
+  flag          String?
+
+  createdAt     DateTime         @default(now())
+  approvedAt    DateTime?
+  approvedById  String?
+  reviewNote    String?
+  paidAt        DateTime?
+  paidById      String?
+  paymentReference String?
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
+
+  @@index([affiliateId, status])
+}

@@ -6,6 +6,7 @@ import { notifyTrader } from "@/server/notifications";
 import { tryRedeemOffer } from "@/server/offers";
 import { enforceCountry, openReview } from "@/server/countries";
 import { hashFingerprint, scanPerson } from "@/server/account-links";
+import { recordCommissionForOrder } from "@/server/affiliates";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -164,6 +165,9 @@ export async function createOrder(input: CreateOrderInput) {
     });
 
     await scanPerson(person.id);
+
+    // Never throws: an affiliate problem must not affect the purchase.
+    await recordCommissionForOrder({ orderRef: input.orderRef, affiliateCode: input.affiliateCode, ipAddress: input.ipAddress });
 
     let offerRedeemed = false;
     if (input.offerCode) {

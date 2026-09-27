@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, Input, PasswordInput } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 
@@ -50,7 +50,7 @@ export default function AffiliateLoginForm() {
             <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
           <Field label="Password">
-            <Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput required value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           {error && <Alert tone="danger">{error}</Alert>}
           <Button type="submit" disabled={loading} className="w-full">

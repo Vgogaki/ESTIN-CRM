@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, PasswordInput } from "@/components/ui/field";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -72,16 +72,14 @@ export default function AdminAccount({ admin }: Props) {
           <h2 className="mb-3 font-display text-sm font-semibold">Change password</h2>
           <form onSubmit={changePassword} className="flex flex-col gap-3">
             <Field label="Current password">
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
               />
             </Field>
             <Field label="New password" hint="Minimum 10 characters">
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}

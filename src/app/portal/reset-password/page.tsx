@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field, PasswordInput } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 
@@ -39,8 +39,7 @@ function ResetPasswordForm() {
   ) : (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <Field label="New password" hint="Minimum 10 characters">
-        <Input
-          type="password"
+        <PasswordInput
           required
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}

@@ -15,6 +15,12 @@ export default function Home() {
             <p className="text-sm text-sub">Sign in to your evaluation account</p>
           </Card>
         </Link>
+        <Link href="/affiliate/login">
+          <Card className="p-4 transition-colors hover:border-acc">
+            <p className="font-medium">Affiliate portal</p>
+            <p className="text-sm text-sub">Sign in to see your referrals and commissions</p>
+          </Card>
+        </Link>
         <Link href="/admin/login">
           <Card className="p-4 transition-colors hover:border-acc">
             <p className="font-medium">Back office</p>

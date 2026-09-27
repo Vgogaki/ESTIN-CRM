@@ -63,6 +63,7 @@ enum WithdrawalStatus {
 enum ActorType {
   admin
   trader
+  affiliate
   system
   integration
 }
@@ -978,7 +979,28 @@ model Affiliate {
   createdById   String?
   createdAt     DateTime        @default(now())
 
-  commissions AffiliateCommission[]
+  // Portal login (separate from a trader account — an affiliate need not be
+  // a trader). Null until the affiliate follows their invite email and sets one.
+  passwordHash        String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+
+  commissions       AffiliateCommission[]
+  affiliateSessions AffiliateSession[]
+}
+
+model AffiliateSession {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  affiliateId String
+  affiliate   Affiliate @relation(fields: [affiliateId], references: [id])
+  ipAddress   String
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+
+  @@index([affiliateId])
 }
 
 /// One commission per successful payment (unique on paymentId, so a replayed

@@ -3,9 +3,11 @@ import { generateOpaqueToken, hashToken } from "./tokens";
 
 export const ADMIN_SESSION_COOKIE = "estin_admin_session";
 export const TRADER_SESSION_COOKIE = "estin_trader_session";
+export const AFFILIATE_SESSION_COOKIE = "estin_affiliate_session";
 
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h — shorter, back office is more sensitive
 const TRADER_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7d
+const AFFILIATE_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
 export async function createAdminSession(
   adminUserId: string,
@@ -69,4 +71,36 @@ export async function getTraderSessionByToken(token: string) {
 
 export async function destroyTraderSession(token: string) {
   await db.traderSession.deleteMany({ where: { tokenHash: hashToken(token) } });
+}
+
+export async function createAffiliateSession(
+  affiliateId: string,
+  ipAddress: string,
+  userAgent: string | null,
+) {
+  const token = generateOpaqueToken();
+  await db.affiliateSession.create({
+    data: {
+      tokenHash: hashToken(token),
+      affiliateId,
+      ipAddress,
+      userAgent,
+      expiresAt: new Date(Date.now() + AFFILIATE_SESSION_TTL_MS),
+    },
+  });
+  return token;
+}
+
+export async function getAffiliateSessionByToken(token: string) {
+  const session = await db.affiliateSession.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { affiliate: true },
+  });
+  if (!session) return null;
+  if (session.expiresAt < new Date()) return null;
+  return session;
+}
+
+export async function destroyAffiliateSession(token: string) {
+  await db.affiliateSession.deleteMany({ where: { tokenHash: hashToken(token) } });
 }

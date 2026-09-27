@@ -138,11 +138,12 @@ These are the ones most worth looking at first.
 
 - **Decision #7 is still open**: whether affiliates ship in V1, and the commission model. Built with a flat percentage per affiliate (no default); tiered or per-sale-fixed models, and a holding period before commission can be approved, aren't built.
 - **Automatic clawback on refund or chargeback** waits for 2.3 (payment provider). Until then staff void a commission by hand, and **a commission already paid can't be reversed in the system** (money owed back would need to be tracked outside it, or netted against the next commission).
-- **No affiliate dashboard or login.** Affiliates can't see their own sales or earnings; staff see them. Building it needs a separate affiliate login (a new user type).
-- **No payout to affiliates**: rails aren't chosen (decision #6), so "paid" is a manual record with a reference, not a transfer. There is no batching, statement, tax or invoice handling.
+- **Affiliate portal built** — its own login at `/affiliate`, separate from a trader account (founder's decision: open to outside partners, not only existing traders). An affiliate sees their code, rate, totals and referred-purchase ledger; fraud-detection reasoning (the `flag` text, staff review notes) is deliberately withheld from their own view. No 2FA (unlike the trader portal) — lower risk since the portal is view-only and holds no payment rail details; revisit if affiliates ever get more than a read-only view.
+- **No payout to affiliates**: rails aren't chosen (decision #6), so "paid" is a manual record with a reference, not a transfer. There is no batching, statement, tax or invoice handling, and the portal doesn't collect bank details.
 - **No referral links or click tracking.** Attribution relies on checkout sending `affiliate_code` with the order; the marketing site / checkout must implement that.
 - Commission is calculated on the amount paid in the order's own currency; there is no currency conversion, and no per-challenge exclusions.
 - Self-referral detection is a heuristic (own profile, same email, same card). It won't catch an affiliate buying for a friend with a different card, and it needs the affiliate to be linked to a trader profile for the profile and card checks.
+- No email notification to the affiliate when a commission is approved, paid or voided — they only see the current state next time they sign in.
 
 ## B10. Device recognition (6.6)
 

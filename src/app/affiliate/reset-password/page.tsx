@@ -1,0 +1,72 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { Alert } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+
+function ResetForm() {
+  const params = useSearchParams();
+  const token = params.get("token") ?? "";
+  const [newPassword, setNewPassword] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const res = await fetch("/api/affiliate/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Failed.");
+      return;
+    }
+    setMessage(data.message);
+  }
+
+  if (!token) return <Alert tone="danger">Missing token — use the link from your email.</Alert>;
+
+  return message ? (
+    <>
+      <Alert tone="success">{message}</Alert>
+      <div className="mt-5 text-center text-sm">
+        <Link href="/affiliate/login" className="text-sub hover:text-acc">
+          Sign in
+        </Link>
+      </div>
+    </>
+  ) : (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Field label="New password" hint="Minimum 10 characters">
+        <Input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+      </Field>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <Button type="submit" className="w-full">
+        Set password
+      </Button>
+    </form>
+  );
+}
+
+export default function AffiliateResetPasswordPage() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <div className="mb-8 text-center">
+        <div className="font-display text-lg font-semibold tracking-[0.14em]">ESTIN</div>
+      </div>
+      <Card className="p-6">
+        <h1 className="mb-5 font-display text-lg font-semibold">Set your password</h1>
+        <Suspense fallback={null}>
+          <ResetForm />
+        </Suspense>
+      </Card>
+    </main>
+  );
+}

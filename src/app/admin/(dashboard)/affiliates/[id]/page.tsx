@@ -34,6 +34,10 @@ export default async function AffiliatePage({ params }: { params: Promise<{ id: 
           <p>{a.personId ? "yes" : "no"}</p>
         </div>
         <div>
+          <p className="text-xs text-sub uppercase">Portal access</p>
+          <p>{a.passwordHash ? `set up${a.lastLoginAt ? `, last signed in ${a.lastLoginAt.toLocaleDateString()}` : " (not yet signed in)"}` : "invited, not set up"}</p>
+        </div>
+        <div>
           <p className="text-xs text-sub uppercase">Totals</p>
           {Object.keys(a.totals).length === 0 ? (
             <p className="text-sub">none yet</p>
@@ -49,6 +53,7 @@ export default async function AffiliatePage({ params }: { params: Promise<{ id: 
       <AffiliateDetail
         id={a.id}
         status={a.status}
+        hasPassword={!!a.passwordHash}
         commissions={a.commissions.map((c) => ({
           id: c.id,
           orderRef: c.orderRef,

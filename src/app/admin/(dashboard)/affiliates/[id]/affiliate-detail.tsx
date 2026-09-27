@@ -103,9 +103,20 @@ function CommissionRow({ c }: { c: Commission }) {
   );
 }
 
-export default function AffiliateDetail({ id, status, commissions }: { id: string; status: "active" | "suspended"; commissions: Commission[] }) {
+export default function AffiliateDetail({
+  id,
+  status,
+  hasPassword,
+  commissions,
+}: {
+  id: string;
+  status: "active" | "suspended";
+  hasPassword: boolean;
+  commissions: Commission[];
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [inviteSent, setInviteSent] = useState(false);
 
   async function toggle() {
     setBusy(true);
@@ -121,6 +132,16 @@ export default function AffiliateDetail({ id, status, commissions }: { id: strin
     }
   }
 
+  async function resendInvite() {
+    setBusy(true);
+    try {
+      await fetch(`/api/admin/affiliates/${id}/invite`, { method: "POST" });
+      setInviteSent(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -128,6 +149,10 @@ export default function AffiliateDetail({ id, status, commissions }: { id: strin
         <Button variant="ghost" disabled={busy} onClick={toggle}>
           {status === "active" ? "Suspend (stop earning commission)" : "Reactivate"}
         </Button>
+        <Button variant="ghost" disabled={busy} onClick={resendInvite}>
+          {hasPassword ? "Send password reset link" : "Resend portal invite"}
+        </Button>
+        {inviteSent && <span className="text-xs text-sub">Sent.</span>}
       </div>
       <Card>
         {commissions.length === 0 ? (

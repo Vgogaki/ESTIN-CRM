@@ -2,8 +2,10 @@ import { cookies, headers } from "next/headers";
 import {
   ADMIN_SESSION_COOKIE,
   TRADER_SESSION_COOKIE,
+  AFFILIATE_SESSION_COOKIE,
   getAdminSessionByToken,
   getTraderSessionByToken,
+  getAffiliateSessionByToken,
 } from "@/server/security/session";
 import { hasPermission, type Permission } from "@/server/permissions";
 import { PermissionDeniedError } from "@/server/permissions";
@@ -37,6 +39,19 @@ export async function requireTrader() {
   const trader = await getCurrentTrader();
   if (!trader) throw new AuthError("Not logged in.", 401);
   return trader;
+}
+
+export async function getCurrentAffiliate() {
+  const token = (await cookies()).get(AFFILIATE_SESSION_COOKIE)?.value;
+  if (!token) return null;
+  const session = await getAffiliateSessionByToken(token);
+  return session?.affiliate ?? null;
+}
+
+export async function requireAffiliate() {
+  const affiliate = await getCurrentAffiliate();
+  if (!affiliate) throw new AuthError("Not logged in.", 401);
+  return affiliate;
 }
 
 /** Best-effort client IP for the audit log — trusts the proxy header set by the hosting platform. */

@@ -33,7 +33,7 @@
 | 4 | Trading platform: licence (DXtrade, TradeLocker, Match-Trader, TradeTech) or build | Equity feed, all end-to-end testing |
 | 5 | Payment provider and currencies | Orders, refunds, chargebacks |
 | 6 | Payout rails / provider | Payouts |
-| 7 | Affiliate programme in V1 or later | Scope |
+| 7 | Affiliate programme in V1 or later | Scope. **Partly narrowed 27 Sept 2026:** *if* it ships, it's open to outside partners (not only existing traders), so it was built with its own affiliate portal/login rather than as a tab inside the trader portal. Whether it ships in V1 at all, and the commission model, are still open |
 | 8 | Which legal entity holds the customer relationship, under what permission | Terms, KYC, payments |
 | 9 | Brand name. Trademark clearance (EUIPO) not yet done | Branding |
 | 10 | Revenue recognition of challenge fees (at purchase or deferred) | Finance reporting |

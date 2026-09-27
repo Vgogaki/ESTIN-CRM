@@ -2,6 +2,7 @@ import { Prisma, type CommissionStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
+import { issueAffiliateInvite } from "@/server/auth/affiliate";
 
 /**
  * Module 7.4 — affiliates. Whether affiliates are in V1 at all, and the
@@ -107,6 +108,8 @@ export async function createAffiliate(input: {
     after: { name, code, commissionPct: pct.toString(), linkedTrader: personId !== null },
     ipAddress: input.ipAddress,
   });
+  // Never lets a broken mail setup fail creating the affiliate record itself.
+  await issueAffiliateInvite(affiliate.id).catch((err) => console.error("[affiliates] could not send invite", err));
   return affiliate;
 }
 
@@ -297,4 +300,37 @@ export async function listAffiliates() {
 export async function getAffiliate(id: string) {
   const a = await db.affiliate.findUnique({ where: { id }, include: { commissions: { orderBy: { createdAt: "desc" } } } });
   return a ? { ...a, totals: totals(a.commissions) } : null;
+}
+
+/**
+ * The affiliate's own view of their commissions — deliberately narrower than
+ * getAffiliate(): no `flag` text or staff `reviewNote`. Those describe our
+ * fraud-detection reasoning (e.g. "same payment card as the buyer"), which
+ * must not be visible to the person being screened. Void/pay references are
+ * shown, since that's the affiliate's own money being explained to them.
+ */
+export async function getAffiliateSelf(id: string) {
+  const a = await db.affiliate.findUnique({ where: { id }, include: { commissions: { orderBy: { createdAt: "desc" } } } });
+  if (!a) return null;
+  return {
+    id: a.id,
+    name: a.name,
+    email: a.email,
+    code: a.code,
+    commissionPct: a.commissionPct,
+    status: a.status,
+    totals: totals(a.commissions),
+    commissions: a.commissions.map((c) => ({
+      id: c.id,
+      orderRef: c.orderRef,
+      baseAmount: c.baseAmount,
+      ratePct: c.ratePct,
+      amount: c.amount,
+      currency: c.currency,
+      status: c.status,
+      createdAt: c.createdAt,
+      paidAt: c.paidAt,
+      paymentReference: c.paymentReference,
+    })),
+  };
 }

@@ -7,13 +7,13 @@ import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 
-export default function ForgotPasswordPage() {
+export default function AffiliateForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/portal/auth/request-password-reset", {
+    const res = await fetch("/api/affiliate/auth/request-password-reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -34,12 +34,7 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={onSubmit} className="flex flex-col gap-4">
             <Field label="Email">
-              <Input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             </Field>
             <Button type="submit" className="w-full">
               Send reset link
@@ -47,7 +42,7 @@ export default function ForgotPasswordPage() {
           </form>
         )}
         <div className="mt-5 text-center text-sm">
-          <Link href="/portal/login" className="text-sub hover:text-acc">
+          <Link href="/affiliate/login" className="text-sub hover:text-acc">
             Back to sign in
           </Link>
         </div>

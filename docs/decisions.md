@@ -29,6 +29,8 @@
 | Currency | **Euros only** — no plans for a second currency (confirmed 29 Sept 2026). Already how every screen behaves: money is shown in whatever currency is actually configured, never a hardcoded symbol. Was open decision #15 |
 | Four-eyes payout approval | **No threshold** (confirmed 29 Sept 2026) — any one admin with payout-approval rights may approve any amount, same as today. Segregation of duties (the KYC reviewer can't approve the same trader's payout) still applies regardless of amount. Revisit if payout volume grows |
 | Non-cash prize / grant cost | **Left out of firm statistics** (confirmed 29 Sept 2026) — funded accounts and free challenges given away (competitions, promotions) are not valued or added to reported cost; figures stay exactly what was actually paid or received in cash |
+| KYC refresh policy | **No fixed schedule** (confirmed 29 Sept 2026) — a verified trader is not re-checked periodically; re-verification is only triggered by a change of details, a large payout, or something looking wrong. No expiry/reminder mechanism needed. Was open decision #14 |
+| Paid-entry competitions | **Cleared for Cyprus** (confirmed 29 Sept 2026) — a paid-entry competition is not blocked by the gaming/lottery concern in spec §7.4. The **per-competition legal sign-off gate stays built and enforced** regardless (a paid competition still can't go active until sign-off is recorded on it) — this decision says the position is fine, not that the record-keeping step should be removed. Was open decision #13 |
 
 ## Open: needs a decision
 
@@ -41,9 +43,7 @@
 | 5 | Payment provider and currencies | Orders, refunds, chargebacks |
 | 6 | Payout rails / provider | Payouts |
 | 7 | Affiliate programme in V1 or later | Scope. **Partly narrowed 27 Sept 2026:** *if* it ships, it's open to outside partners (not only existing traders), so it was built with its own affiliate portal/login rather than as a tab inside the trader portal. Whether it ships in V1 at all, and the commission model, are still open |
-| 8 | Which legal entity holds the customer relationship, under what permission | Terms, KYC, payments |
-| 9 | Brand name. Trademark clearance (EUIPO) not yet done | Branding |
+| 8 | Which legal entity holds the customer relationship, under what permission. **Checked in 29 Sept 2026 — still pending legal advice.** | Terms, KYC, payments |
+| 9 | Brand name. Trademark clearance (EUIPO) not yet done. **Checked in 29 Sept 2026 — still pending.** | Branding |
 | 10 | Revenue recognition of challenge fees (at purchase or deferred) | Finance reporting |
 | 11 | Restricted-jurisdiction matrix (sanctions, payment provider rules, data vendor terms, legal advice) | Country controls |
-| 13 | Paid-entry competitions: legal position in Cyprus and target markets | Competitions |
-| 14 | KYC refresh policy (how often verified documents must be renewed) | KYC |

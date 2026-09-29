@@ -68,12 +68,12 @@ These are the ones most worth looking at first.
 - **Payment provider (2.2)** and **refunds / chargebacks (2.3)** — decision #5.
 - **Payout rails (5.3)** — decision #6. Consequence: a payout can be approved but never marked *paid*; that status is deliberately unreachable so nobody can record money as sent that wasn't. `Withdrawal.providerReference` is ready for it.
 - **Choosing the email provider (4.5)** — the email system is built and verified against a test SMTP server, but until a provider is chosen and its `EMAIL_DRIVER=smtp`, `SMTP_URL`, `EMAIL_FROM` settings are filled in, nothing is delivered (messages are recorded and printed to the server log). Also needs the sending domain's SPF/DKIM/DMARC set up for deliverability, which only the domain owner / contractor can do.
-- **KYC document storage backend** — currently encrypted files on local disk (`.kyc-storage/`); needs object storage before production. Retention/refresh policy is decision #14.
+- **KYC document storage backend** — currently encrypted files on local disk (`.kyc-storage/`); needs object storage before production. Refresh policy is decided (decisions.md: no fixed schedule) — retention/deletion timing (how long to keep a document after a person leaves) is separate and still open.
 
 ## E. Needs a decision, not code
 
 - **Competition tie-breaker rule** (spec §7.2 "must be defined before launch") — today free text per competition, nothing auto-applied.
-- **Paid-entry competitions** — legal position in Cyprus (decision #13); gated behind a recorded legal sign-off.
+- **Paid-entry competitions** — legal position confirmed clear for Cyprus (decisions.md, 29 Sept 2026); the per-competition legal sign-off gate stays built and enforced regardless.
 - **Four-eyes payout approval above a threshold** — decided against for now (decisions.md, 29 Sept 2026): no threshold, single-admin approval, revisit if volume grows.
 - **Non-cash prize cost** — decided to leave out of firm statistics for now (decisions.md, 29 Sept 2026): funded accounts / free challenges stay unvalued; figures are cash only.
 - **Terms/rulebook** — a placeholder version string is recorded (`v0.1-draft`) until legal drafts the real document (decision #9).
@@ -149,7 +149,7 @@ These are the ones most worth looking at first.
 - **Not a true fingerprint.** It recognises a browser by a cookie we set. A determined person defeats it by clearing cookies, using a private window, another browser or another device. A commercial fingerprinting service (or our own collection of screen, fonts, canvas and hardware attributes) catches more, but it is a vendor choice and a heavier privacy step; deliberately not built.
 - **Privacy and consent (needs legal input before launch):** setting an identifier cookie for fraud prevention is generally treated as strictly necessary, but the privacy notice must say we do it and why, and whether a consent banner is required depends on the final site design and counsel's view. Nothing here has been reviewed by legal.
 - **Shared computers will flag.** Two family members or an internet café using one browser look like the same device. The flag is a review prompt only (dismiss with a note), never a block.
-- Recorded only at sign-in and registration (not on every page view), and not for staff. Sightings are never deleted automatically: a retention period is not set (decision #14 covers KYC data only).
+- Recorded only at sign-in and registration (not on every page view), and not for staff. Sightings are never deleted automatically: a retention period is not set.
 - Weak "look-alike" matching (same browser model, screen, timezone) is not done: too many false matches to be useful.
 - The device sighting is not yet used by any payout rule; whether a confirmed link should affect payouts is still open.
 

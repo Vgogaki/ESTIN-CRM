@@ -31,6 +31,10 @@
 | Non-cash prize / grant cost | **Left out of firm statistics** (confirmed 29 Sept 2026) — funded accounts and free challenges given away (competitions, promotions) are not valued or added to reported cost; figures stay exactly what was actually paid or received in cash |
 | KYC refresh policy | **No fixed schedule** (confirmed 29 Sept 2026) — a verified trader is not re-checked periodically; re-verification is only triggered by a change of details, a large payout, or something looking wrong. No expiry/reminder mechanism needed. Was open decision #14 |
 | Paid-entry competitions | **Cleared for Cyprus** (confirmed 29 Sept 2026) — a paid-entry competition is not blocked by the gaming/lottery concern in spec §7.4. The **per-competition legal sign-off gate stays built and enforced** regardless (a paid competition still can't go active until sign-off is recorded on it) — this decision says the position is fine, not that the record-keeping step should be removed. Was open decision #13 |
+| Maximum pass-review period | **2 business days** (confirmed 29 Sept 2026) — an internal service standard, not yet enforced anywhere (no overdue flag is built). Recorded so an "overdue pass review" alert can be built to this number later without re-asking. Was open decision #3 |
+| Affiliate programme in V1 | **Yes — settled** (confirmed 29 Sept 2026). Already in real use. Commission stays a flat percentage chosen per affiliate, as built; no tiered or fixed-per-sale model. Was open decision #7 |
+| Competition tie-breaker rule | **Stays free text per competition** (confirmed 29 Sept 2026) — no single system-wide rule; different competition formats may need different logic. Staff must still fill it in before a competition can go active (already enforced) |
+| Confirmed multiple-account link & payouts | **Stays a staff judgement call** (confirmed 29 Sept 2026) — a confirmed link (same document, card or device) raises a medium risk flag same as an unconfirmed one; it does not auto-escalate to high. Staff must deliberately escalate to hold payouts, to avoid a shared device/household freezing a legitimate trader's money automatically |
 
 ## Open: needs a decision
 
@@ -38,11 +42,9 @@
 
 | # | Question | Blocks |
 |---|---|---|
-| 3 | Maximum pass-review period, committed internally | Pass workflow |
 | 4 | Trading platform: licence (DXtrade, TradeLocker, Match-Trader, TradeTech) or build | Equity feed, all end-to-end testing |
 | 5 | Payment provider and currencies | Orders, refunds, chargebacks |
 | 6 | Payout rails / provider | Payouts |
-| 7 | Affiliate programme in V1 or later | Scope. **Partly narrowed 27 Sept 2026:** *if* it ships, it's open to outside partners (not only existing traders), so it was built with its own affiliate portal/login rather than as a tab inside the trader portal. Whether it ships in V1 at all, and the commission model, are still open |
 | 8 | Which legal entity holds the customer relationship, under what permission. **Checked in 29 Sept 2026 — still pending legal advice.** | Terms, KYC, payments |
 | 9 | Brand name. Trademark clearance (EUIPO) not yet done. **Checked in 29 Sept 2026 — still pending.** | Branding |
 | 10 | Revenue recognition of challenge fees (at purchase or deferred) | Finance reporting |

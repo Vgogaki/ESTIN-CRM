@@ -43,7 +43,7 @@ These are the ones most worth looking at first.
 - **Device linking** — built in 6.6 as a cookie-based device id (see B10); true fingerprinting is not.
 - **Address linking** — no address is collected anywhere; needs a field on the person or on KYC. *Decision + Build.*
 - **Payment-instrument linking** works but stays empty until a payment provider supplies a fingerprint token. *Vendor.*
-- **Whether a confirmed link should affect payouts** — spec 6.1 says flag for review, do not auto-block; the later "open high-severity risk flags block payouts" rule (6.7) isn't built. *Decision.*
+- **Whether a confirmed link should affect payouts** — decided (decisions.md, 29 Sept 2026): stays a staff judgement call. A confirmed link raises the same medium flag as an unconfirmed one; staff must deliberately escalate to high to hold payouts.
 - IP linking is deliberately weak and never queued on its own; any threshold for "many people on one IP" is undecided.
 
 ## B3. Finance (5.5)
@@ -72,7 +72,7 @@ These are the ones most worth looking at first.
 
 ## E. Needs a decision, not code
 
-- **Competition tie-breaker rule** (spec §7.2 "must be defined before launch") — today free text per competition, nothing auto-applied.
+- **Competition tie-breaker rule** — decided (decisions.md, 29 Sept 2026) to stay free text per competition, filled in before it can go active (already enforced); no single system-wide rule.
 - **Paid-entry competitions** — legal position confirmed clear for Cyprus (decisions.md, 29 Sept 2026); the per-competition legal sign-off gate stays built and enforced regardless.
 - **Four-eyes payout approval above a threshold** — decided against for now (decisions.md, 29 Sept 2026): no threshold, single-admin approval, revisit if volume grows.
 - **Non-cash prize cost** — decided to leave out of firm statistics for now (decisions.md, 29 Sept 2026): funded accounts / free challenges stay unvalued; figures are cash only.
@@ -135,7 +135,7 @@ These are the ones most worth looking at first.
 
 ## B9. Affiliates (7.4)
 
-- **Decision #7 is still open**: whether affiliates ship in V1, and the commission model. Built with a flat percentage per affiliate (no default); tiered or per-sale-fixed models, and a holding period before commission can be approved, aren't built.
+- **Decision #7 settled 29 Sept 2026**: affiliates are in V1 (already in real use), commission stays a flat percentage per affiliate (no default rate). Tiered or per-sale-fixed models, and a holding period before commission can be approved, aren't built.
 - **Automatic clawback on refund or chargeback** waits for 2.3 (payment provider). Until then staff void a commission by hand, and **a commission already paid can't be reversed in the system** (money owed back would need to be tracked outside it, or netted against the next commission).
 - **Affiliate portal built** — its own login at `/affiliate`, separate from a trader account (founder's decision: open to outside partners, not only existing traders). An affiliate sees their code, rate, totals and referred-purchase ledger; fraud-detection reasoning (the `flag` text, staff review notes) is deliberately withheld from their own view. No 2FA (unlike the trader portal) — lower risk since the portal is view-only and holds no payment rail details; revisit if affiliates ever get more than a read-only view.
 - **No payout to affiliates**: rails aren't chosen (decision #6), so "paid" is a manual record with a reference, not a transfer. There is no batching, statement, tax or invoice handling, and the portal doesn't collect bank details.
@@ -151,12 +151,12 @@ These are the ones most worth looking at first.
 - **Shared computers will flag.** Two family members or an internet café using one browser look like the same device. The flag is a review prompt only (dismiss with a note), never a block.
 - Recorded only at sign-in and registration (not on every page view), and not for staff. Sightings are never deleted automatically: a retention period is not set.
 - Weak "look-alike" matching (same browser model, screen, timezone) is not done: too many false matches to be useful.
-- The device sighting is not yet used by any payout rule; whether a confirmed link should affect payouts is still open.
+- The device sighting is not yet used by any payout rule — matches the decision that a confirmed link stays a staff judgement call, not an automatic hold.
 
 ## B11. Risk flags and profiles (6.7)
 
 - **Which automatic detectors should raise a flag, and at what severity, is undecided.** Only strong account links raise one today (medium). Identity mismatch, country reviews and KYC state are shown as signals but don't create flags, because each already blocks payouts by its own rule. Other candidates (rapid repeat breaches, unusual sign-in geography once 6.5 exists, copy-trading once 6.8 exists) wait for those modules.
-- **Whether a confirmed link should block payouts** (the pending decision in B2) is still open: a person must escalate a linked-account flag to high for now.
+- **Whether a confirmed link should block payouts** — decided (decisions.md, 29 Sept 2026): no, stays a staff judgement call; a person must deliberately escalate a linked-account flag to high.
 - **No risk score or rating.** The profile shows the highest open flag; any weighted score needs a policy decision first.
 - Flags block payout **approval** only. They don't block a payout request, purchases, trading or logins, and there is no automatic account restriction.
 - A resolved flag can't be reopened (raise a new one); there is no bulk review, flag types list to filter by, or dedicated risk queue page beyond Pending tasks.

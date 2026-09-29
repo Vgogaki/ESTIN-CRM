@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
+import ImportCountries from "./import-countries";
 
 type Action = "allowed" | "review" | "blocked";
 const STAGES = ["registration", "purchase", "trading", "payout"] as const;
@@ -202,6 +203,7 @@ export default function CountriesView({ rules, reviews }: { rules: Rule[]; revie
           ))}
         </Card>
       )}
+      <ImportCountries />
       <AddCountry />
       {rules.length === 0 ? (
         <Card className="p-6 text-sm text-sub">No countries listed — everything is allowed.</Card>

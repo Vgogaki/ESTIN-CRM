@@ -2,6 +2,7 @@ import type { CountryAction, CountryStage } from "@prisma/client";
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
+import { parseCountryCsv, type CountryCsvError } from "@/server/country-import";
 
 /**
  * Module 6.3 — restricted-country controls (modules-to-design.md §6.1–6.5).
@@ -176,6 +177,83 @@ export async function clearReview(input: { reviewId: string; note: string; admin
  * the rule's full previous settings. Open reviews already raised under the
  * rule are left alone (they belong to the person; clear them separately).
  */
+export type ImportRowPreview = {
+  countryCode: string;
+  row: number;
+  isNew: boolean;
+  before: { registration: CountryAction; purchase: CountryAction; trading: CountryAction; payout: CountryAction } | null;
+  after: { registration: CountryAction; purchase: CountryAction; trading: CountryAction; payout: CountryAction; note: string | null };
+};
+
+/** Read-only: parses the file and shows exactly what applying it would change. Never touches the database. */
+export async function previewCountryImport(csvText: string): Promise<{ fatalError: string | null; changes: ImportRowPreview[]; errors: CountryCsvError[] }> {
+  const parsed = parseCountryCsv(csvText);
+  if (parsed.fatalError || parsed.valid.length === 0) {
+    return { fatalError: parsed.fatalError, changes: [], errors: parsed.errors };
+  }
+
+  const codes = parsed.valid.map((r) => r.countryCode);
+  const existing = await db.countryRule.findMany({ where: { countryCode: { in: codes } } });
+  const byCode = new Map(existing.map((r) => [r.countryCode, r]));
+
+  const changes: ImportRowPreview[] = parsed.valid.map((row) => {
+    const current = byCode.get(row.countryCode);
+    return {
+      countryCode: row.countryCode,
+      row: row.row,
+      isNew: !current,
+      before: current ? { registration: current.registration, purchase: current.purchase, trading: current.trading, payout: current.payout } : null,
+      after: { registration: row.registration, purchase: row.purchase, trading: row.trading, payout: row.payout, note: row.note },
+    };
+  });
+
+  return { fatalError: null, changes, errors: parsed.errors };
+}
+
+/**
+ * Applies the file: one upsertRule() call per valid row, so each country gets
+ * the exact same validation and per-row audit entry a manual edit would.
+ * Upsert-only — a country left out of the file is never touched, let alone
+ * removed. Also writes one summary audit entry for the import itself, so
+ * staff can tell a bulk upload apart from a string of manual edits later.
+ */
+export async function applyCountryImport(input: {
+  csvText: string;
+  adminId: string;
+  ipAddress: string;
+}): Promise<{ fatalError: string | null; applied: number; errors: CountryCsvError[] }> {
+  const parsed = parseCountryCsv(input.csvText);
+  if (parsed.fatalError) return { fatalError: parsed.fatalError, applied: 0, errors: parsed.errors };
+
+  for (const row of parsed.valid) {
+    await upsertRule({
+      countryCode: row.countryCode,
+      registration: row.registration,
+      purchase: row.purchase,
+      trading: row.trading,
+      payout: row.payout,
+      note: row.note,
+      adminId: input.adminId,
+      ipAddress: input.ipAddress,
+    });
+  }
+
+  if (parsed.valid.length > 0) {
+    await writeAuditLog({
+      actorType: "admin",
+      actorId: input.adminId,
+      action: "country_rules.imported",
+      entityType: "CountryRule",
+      entityId: "bulk-import",
+      after: { count: parsed.valid.length, countryCodes: parsed.valid.map((r) => r.countryCode) },
+      reason: parsed.errors.length > 0 ? `${parsed.errors.length} row(s) in the file were skipped — see the per-row errors.` : null,
+      ipAddress: input.ipAddress,
+    });
+  }
+
+  return { fatalError: null, applied: parsed.valid.length, errors: parsed.errors };
+}
+
 export async function deleteRule(input: { countryCode: string; adminId: string; ipAddress: string }) {
   const code = normalizeCountry(input.countryCode);
   const rule = await db.countryRule.findUnique({ where: { countryCode: code } });

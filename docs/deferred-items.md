@@ -59,7 +59,7 @@ These are the ones most worth looking at first.
 - **Equity feed** — all equity today is typed in by an admin ("Manual override"). Everything that "runs automatically" runs off that.
 - **Equity curve with target/breach lines** on the trader dashboard (spec §6.1) — no tick history to chart.
 - **Payout "consistency rule" check** (best day ≤ 50% of profit) — needs per-day equity history.
-- **Trading-day counting and day rollover** — `tradingDays` is manual (decisions #2 and #12 also open).
+- **Trading-day counting and day rollover** — `tradingDays` is manual. The rule to build to is decided (decisions.md: any closed trade counts, rollover at midnight UTC); just needs an equity feed to enforce it against.
 - **Instrument restrictions (3.6)** — enforced platform-side.
 - **Real trade counts in competitions** — entrant equity and trade counts are simulated by an admin.
 
@@ -78,7 +78,6 @@ These are the ones most worth looking at first.
 - **Non-cash prize cost** — funded accounts / free challenges have a real cost that isn't valued; firm stats sum cash prizes only.
 - **Terms/rulebook** — a placeholder version string is recorded (`v0.1-draft`) until legal drafts the real document (decision #9).
 - **Currency** — firm statistics sum in one currency; revisit if a second is ever sold (decision #15 is about display).
-- **Trailing-drawdown reference and minimum trading days** — decisions #16 and #17.
 
 ## F. Smaller notification gaps
 

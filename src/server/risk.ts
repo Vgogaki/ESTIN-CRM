@@ -2,6 +2,7 @@ import type { RiskFlagSeverity, RiskFlagStatus } from "@prisma/client";
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
+import { recentLoginCountries } from "@/server/login-geo";
 
 /**
  * Module 6.7 — risk flags and a per-person risk profile.
@@ -154,17 +155,19 @@ export async function changeSeverity(input: { flagId: string; severity: RiskFlag
 
 /** Everything staff need on one card: the flags, the level, and the raw signals that sit outside the flag list. */
 export async function riskProfile(personId: string) {
-  const [flags, person, openStrongLinks, openCountryReviews] = await Promise.all([
+  const [flags, person, openStrongLinks, openCountryReviews, loginCountries] = await Promise.all([
     db.riskFlag.findMany({ where: { personId }, orderBy: { createdAt: "desc" } }),
     db.person.findUnique({ where: { id: personId }, select: { identityMismatch: true, kycStatus: true } }),
     db.accountLink.count({ where: { status: "open", strength: "strong", OR: [{ personAId: personId }, { personBId: personId }] } }),
     db.countryReview.count({ where: { personId, status: "open" } }),
+    recentLoginCountries(personId),
   ]);
   return {
     flags,
     level: riskLevel(flags),
     blocksPayout: blocksPayout(flags),
-    signals: { identityMismatch: person?.identityMismatch ?? false, kycStatus: person?.kycStatus ?? "not_started", openStrongLinks, openCountryReviews },
+    // Deduped for display only — the underlying check (login-geo.ts) needs the raw, repeated list to count samples.
+    signals: { identityMismatch: person?.identityMismatch ?? false, kycStatus: person?.kycStatus ?? "not_started", openStrongLinks, openCountryReviews, loginCountries: [...new Set(loginCountries)] },
   };
 }
 

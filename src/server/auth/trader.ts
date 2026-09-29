@@ -8,6 +8,7 @@ import { generateOpaqueToken, hashToken } from "@/server/security/tokens";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
 import { enforceCountry, openReview } from "@/server/countries";
 import { scanPerson } from "@/server/account-links";
+import { noteLoginIp } from "@/server/login-geo";
 import { queueEmail } from "@/server/email/outbox";
 import { appBaseUrl } from "@/server/email/transport";
 
@@ -189,6 +190,8 @@ export async function loginTrader(input: {
 
   const token = await createTraderSession(person.id, input.ipAddress, input.userAgent);
   await scanPerson(person.id);
+  // Not awaited: a login must never wait on a third-party IP lookup (6.5). noteLoginIp never throws.
+  void noteLoginIp({ personId: person.id, ipAddress: input.ipAddress, homeCountry: person.country });
 
   await writeAuditLog({
     actorType: "trader",

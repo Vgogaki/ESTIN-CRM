@@ -22,7 +22,7 @@ type Flag = {
 type Profile = {
   level: Severity | null;
   blocksPayout: boolean;
-  signals: { identityMismatch: boolean; kycStatus: string; openStrongLinks: number; openCountryReviews: number };
+  signals: { identityMismatch: boolean; kycStatus: string; openStrongLinks: number; openCountryReviews: number; loginCountries: string[] };
   flags: Flag[];
 };
 
@@ -126,6 +126,7 @@ export default function RiskCard({ personId, profile, canReview }: { personId: s
       {profile.blocksPayout && <Alert tone="danger">An open high-severity flag is blocking payout approval for this trader.</Alert>}
       <p className="my-2 text-xs text-sub">
         Other signals: KYC {s.kycStatus.replace(/_/g, " ")} · identity mismatch {s.identityMismatch ? "YES" : "no"} · {s.openStrongLinks} open strong account link(s) · {s.openCountryReviews} open country review(s)
+        {s.loginCountries.length > 0 && ` · recent sign-in countries: ${s.loginCountries.join(", ")}`}
       </p>
       {profile.flags.length === 0 ? <p className="text-sm text-sub">No risk flags have been raised.</p> : profile.flags.map((f) => <FlagRow key={f.id + f.status + f.severity} flag={f} canReview={canReview} />)}
       {canReview && (

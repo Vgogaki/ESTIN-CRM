@@ -31,7 +31,7 @@ These are the ones most worth looking at first.
 
 ## B. Country controls (6.3)
 
-- **IP geolocation** — no geolocation provider, so IP isn't checked. *Vendor.*
+- **IP geolocation** — a driver now exists (`src/server/geoip.ts`, module 6.5), but no provider is configured, so purchase/registration country checks here still use only the declared country. Once `GEOIP_DRIVER`/`GEOIP_API_URL` are set, wiring the resolved country into `enforceCountry`'s checks is a follow-up, not done yet (6.5 only uses it for the login-pattern flag, not for blocking). *Vendor.*
 - **KYC-document country** — KYC stores documents but no separate structured country field. *Build.*
 - **What is checked today** — only the country given at registration or on the order, which also serves as the billing country.
 - **Trading-stage rules** — can be saved, but can't be enforced until there's a trading platform. *Platform.*
@@ -163,6 +163,15 @@ These are the ones most worth looking at first.
 - A resolved flag can't be reopened (raise a new one); there is no bulk review, flag types list to filter by, or dedicated risk queue page beyond Pending tasks.
 - Automatic flags are raised when a link is created or gains a strong signal; flags for links that existed before this module were not back-filled (running the existing link rescan doesn't create them either).
 
+## B12. IP-country mismatch (6.5)
+
+- **No provider is configured** (`GEOIP_DRIVER=off` by default) — nothing is resolved or flagged until one is chosen and its API shape matches the "bare two-letter country code" contract `geoip.ts` expects (most free IP-geolocation APIs offer this as a dedicated endpoint; a JSON-only provider would need a small adapter added to `lookupCountry`).
+- **The sample window (5) and minimum-match count (3) are fixed constants**, not a decided policy value or a staff-configurable setting — pick reasonable defaults, not decisions.md material on their own, but worth a look during the review.
+- **Trading IPs** aren't checked (no trading platform yet, 3.3) — only login IPs.
+- **No rate limiting or cost control** on the lookup itself — every login with a driver configured calls the provider; a paid provider needs a usage cap or cache added before going live.
+- **This flag never blocks anything by itself** — it's medium severity like every other automatic flag (6.7); a person must escalate it to high to hold payouts.
+- Doesn't distinguish a VPN/proxy from genuine travel; a geolocation provider with VPN detection would need its own field and handling, not built.
+
 ## H. Modules not started (for completeness)
 
-6.5 KYC-country vs IP mismatch · 6.8 Copy-trading / inverse-trading detection.
+6.8 Copy-trading / inverse-trading detection.

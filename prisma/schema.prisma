@@ -110,6 +110,7 @@ enum NotificationType {
   offer_received
   competition_results
   support_reply
+  affiliate_added
 }
 
 model Notification {

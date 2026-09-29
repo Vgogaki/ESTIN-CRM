@@ -57,6 +57,7 @@ export const EMAIL_TEMPLATES: readonly EmailTemplateDef[] = [
   notify("offer_received", "Offer received (marketing)", true),
   notify("competition_results", "Competition results"),
   notify("support_reply", "Support replied to your message"),
+  notify("affiliate_added", "Set up as an affiliate"),
   {
     key: "affiliate_invite",
     label: "Affiliate portal invite",

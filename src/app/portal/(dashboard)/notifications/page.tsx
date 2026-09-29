@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentTrader } from "@/server/auth/guard";
 import { listNotifications, markAllNotificationsRead } from "@/server/notifications";
@@ -28,6 +29,11 @@ export default async function NotificationsPage() {
                 <div>
                   <p className="text-sm font-medium">{n.title}</p>
                   <p className="mt-0.5 text-sm text-sub">{n.body}</p>
+                  {n.link && (
+                    <Link href={n.link} className="mt-1 inline-block text-sm text-acc underline">
+                      View
+                    </Link>
+                  )}
                 </div>
                 <span className="whitespace-nowrap text-xs text-sub">
                   {new Date(n.createdAt).toLocaleString()}

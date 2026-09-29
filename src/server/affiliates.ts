@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { issueAffiliateInvite } from "@/server/auth/affiliate";
+import { notifyTrader } from "@/server/notifications";
 
 /**
  * Module 7.4 — affiliates. Whether affiliates are in V1 at all, and the
@@ -110,6 +111,16 @@ export async function createAffiliate(input: {
   });
   // Never lets a broken mail setup fail creating the affiliate record itself.
   await issueAffiliateInvite(affiliate.id).catch((err) => console.error("[affiliates] could not send invite", err));
+  // The affiliate is also a trader: tell them on the trader side too, not just by email to the affiliate portal.
+  if (personId) {
+    await notifyTrader({
+      personId,
+      type: "affiliate_added",
+      title: "You're now also an ESTIN affiliate",
+      body: `You've been set up as an affiliate with referral code ${code}. Sign in to the affiliate portal to see your referrals and commissions.`,
+      link: "/affiliate/login",
+    }).catch((err) => console.error("[affiliates] could not notify linked trader", err));
+  }
   return affiliate;
 }
 

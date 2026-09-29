@@ -25,10 +25,14 @@
 | What counts as a trading day | **Any closed trade that calendar day** (confirmed 29 Sept 2026), no minimum trade size. Not yet enforced anywhere — `tradingDays` is still typed in by an admin (deferred-items.md C) until a trading-platform feed exists (decision #4); recorded now so the eventual feed integration is built to this rule rather than guessing. Was open decision #12 |
 | Trading-day rollover | **Midnight UTC** (confirmed 29 Sept 2026). Nothing automated depends on this yet (equity is manual until decision #4); recorded now so it isn't re-litigated later. Was open decision #2 |
 | Trailing drawdown reference | **End-of-day high-water mark**, per rulebook v1.0 (confirmed 29 Sept 2026) — not the prototypes' intraday-peak behaviour. Not yet observable in practice: `peakEquity` is set directly by whatever an admin types into "Manual override" (`traders.ts`, `updateAccountState`), so there's no live intraday feed yet to be "too strict" against. Matters once the equity feed (decision #4) exists — build the peak update to only apply once per trading day, at close. Was open decision #17 |
+| Equity/trading days on phase advance | **Stays a per-advance admin choice** (confirmed 29 Sept 2026) — the existing checkbox on the advance screen (default: reset, audited either way) is correct as built; not being made a fixed, no-choice behaviour. Was open decision #18 |
+| Currency | **Euros only** — no plans for a second currency (confirmed 29 Sept 2026). Already how every screen behaves: money is shown in whatever currency is actually configured, never a hardcoded symbol. Was open decision #15 |
+| Four-eyes payout approval | **No threshold** (confirmed 29 Sept 2026) — any one admin with payout-approval rights may approve any amount, same as today. Segregation of duties (the KYC reviewer can't approve the same trader's payout) still applies regardless of amount. Revisit if payout volume grows |
+| Non-cash prize / grant cost | **Left out of firm statistics** (confirmed 29 Sept 2026) — funded accounts and free challenges given away (competitions, promotions) are not valued or added to reported cost; figures stay exactly what was actually paid or received in cash |
 
 ## Open: needs a decision
 
-> **Deliberately left open for now.** Once the system is complete, every open decision below — and the ones flagged per module in `deferred-items.md` (including #18, what happens to equity when an account moves to its next phase) — gets reviewed and decided one at a time, module flow by module flow. Until then each is built as a configuration value or an explicit, audited choice rather than a silent assumption.
+> **Being reviewed 29 Sept 2026 onward**, module flow by module flow, per the founder's request. Decided ones move to the table above with the date. Vendor choices (platform, payment, payout, email, KYC storage, geolocation) are tracked here but reviewed separately as a shopping/status exercise, not a snap decision.
 
 | # | Question | Blocks |
 |---|---|---|
@@ -43,5 +47,3 @@
 | 11 | Restricted-jurisdiction matrix (sanctions, payment provider rules, data vendor terms, legal advice) | Country controls |
 | 13 | Paid-entry competitions: legal position in Cyprus and target markets | Competitions |
 | 14 | KYC refresh policy (how often verified documents must be renewed) | KYC |
-| 15 | Currency display: prototypes show $, business prices in € | All screens |
-| 18 | **What happens to equity and trading days when an account moves to its next phase.** Spec is silent. Built as an explicit, audited choice on the advance action, defaulting to *reset to the account size* (otherwise evaluation profit would be paid out on a funded account). Confirm this is right, and whether it should be fixed rather than chosen each time | Phase progression, payouts |

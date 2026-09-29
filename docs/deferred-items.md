@@ -51,7 +51,7 @@ These are the ones most worth looking at first.
 - **Refunds and chargebacks** — reported as "not tracked"; needs module 2.3 and a stored refund amount. *Vendor (payment provider).*
 - **Revenue recognition** — figures are cash received at purchase, no deferral (decision #10). *Decision (accountant).*
 - **Paid vs approved payouts** — needs a payout provider. *Vendor.*
-- Single-currency firm statistics on the dashboard vs. per-currency here — the dashboard still sums one currency.
+- Single-currency firm statistics on the dashboard vs. per-currency here — moot now euros-only is confirmed (decisions.md), but the dashboard and finance page still differ mechanically if that ever changes.
 - No scheduled/emailed reports, no accounting-package format (only generic CSV).
 
 ## C. Blocked on the trading platform (3.2 / 3.3)
@@ -74,8 +74,8 @@ These are the ones most worth looking at first.
 
 - **Competition tie-breaker rule** (spec §7.2 "must be defined before launch") — today free text per competition, nothing auto-applied.
 - **Paid-entry competitions** — legal position in Cyprus (decision #13); gated behind a recorded legal sign-off.
-- **Four-eyes payout approval above a threshold** — optional in the spec, no threshold decided, not built.
-- **Non-cash prize cost** — funded accounts / free challenges have a real cost that isn't valued; firm stats sum cash prizes only.
+- **Four-eyes payout approval above a threshold** — decided against for now (decisions.md, 29 Sept 2026): no threshold, single-admin approval, revisit if volume grows.
+- **Non-cash prize cost** — decided to leave out of firm statistics for now (decisions.md, 29 Sept 2026): funded accounts / free challenges stay unvalued; figures are cash only.
 - **Terms/rulebook** — a placeholder version string is recorded (`v0.1-draft`) until legal drafts the real document (decision #9).
 - **Currency** — firm statistics sum in one currency; revisit if a second is ever sold (decision #15 is about display).
 

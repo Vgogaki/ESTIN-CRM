@@ -35,6 +35,7 @@
 | Affiliate programme in V1 | **Yes — settled** (confirmed 29 Sept 2026). Already in real use. Commission stays a flat percentage chosen per affiliate, as built; no tiered or fixed-per-sale model. Was open decision #7 |
 | Competition tie-breaker rule | **Stays free text per competition** (confirmed 29 Sept 2026) — no single system-wide rule; different competition formats may need different logic. Staff must still fill it in before a competition can go active (already enforced) |
 | Confirmed multiple-account link & payouts | **Stays a staff judgement call** (confirmed 29 Sept 2026) — a confirmed link (same document, card or device) raises a medium risk flag same as an unconfirmed one; it does not auto-escalate to high. Staff must deliberately escalate to hold payouts, to avoid a shared device/household freezing a legitimate trader's money automatically |
+| Revenue recognition | **At purchase, not deferred** (confirmed 29 Sept 2026) — matches how finance reporting already works; no change needed. If a future accountant prefers deferred recognition for statutory accounts, that's a reporting adjustment made outside this system, not a rebuild. Was open decision #10 |
 
 ## Open: needs a decision
 
@@ -47,5 +48,4 @@
 | 6 | Payout rails / provider | Payouts |
 | 8 | Which legal entity holds the customer relationship, under what permission. **Checked in 29 Sept 2026 — still pending legal advice.** | Terms, KYC, payments |
 | 9 | Brand name. Trademark clearance (EUIPO) not yet done. **Checked in 29 Sept 2026 — still pending.** | Branding |
-| 10 | Revenue recognition of challenge fees (at purchase or deferred) | Finance reporting |
-| 11 | Restricted-jurisdiction matrix (sanctions, payment provider rules, data vendor terms, legal advice) | Country controls |
+| 11 | Restricted-jurisdiction matrix (sanctions, payment provider rules, data vendor terms, legal advice). **Checked in 29 Sept 2026 — not started; the four-input tracker on `/admin/countries` is ready whenever gathering begins.** | Country controls |

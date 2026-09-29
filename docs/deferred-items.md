@@ -49,7 +49,7 @@ These are the ones most worth looking at first.
 ## B3. Finance (5.5)
 
 - **Refunds and chargebacks** — reported as "not tracked"; needs module 2.3 and a stored refund amount. *Vendor (payment provider).*
-- **Revenue recognition** — figures are cash received at purchase, no deferral (decision #10). *Decision (accountant).*
+- **Revenue recognition** — decided (decisions.md, 29 Sept 2026): at purchase, no deferral. Figures are cash received.
 - **Paid vs approved payouts** — needs a payout provider. *Vendor.*
 - Single-currency firm statistics on the dashboard vs. per-currency here — moot now euros-only is confirmed (decisions.md), but the dashboard and finance page still differ mechanically if that ever changes.
 - No scheduled/emailed reports, no accounting-package format (only generic CSV).

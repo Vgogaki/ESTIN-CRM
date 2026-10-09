@@ -621,6 +621,7 @@ model AdminUser {
   updatedAt DateTime @updatedAt
 
   sessions            AdminSession[]
+  recoveryCodes       AdminRecoveryCode[]
   createdChallenges   ChallengeType[]
   decidedWithdrawals  Withdrawal[]
   notes               Note[]
@@ -630,6 +631,22 @@ model AdminUser {
   supportMessages     SupportMessage[]
 
   @@index([email])
+}
+
+// One-time codes for signing in without the authenticator device. Stored only
+// as hashes; see src/server/security/recovery-codes.ts. Security artefacts, not
+// business records, so regenerating or turning two-factor off removes them
+// (the audit log keeps the history).
+model AdminRecoveryCode {
+  id          String    @id @default(cuid())
+  adminUserId String
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id])
+  codeHash    String
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@unique([adminUserId, codeHash])
+  @@index([adminUserId])
 }
 
 model AdminSession {

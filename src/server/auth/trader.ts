@@ -182,6 +182,8 @@ export async function loginTrader(input: {
   if (person.twoFactorEnabledAt) {
     if (!input.totpToken) throw new TwoFactorRequiredError();
     if (!person.twoFactorSecret || !(await verifyTotpToken(input.totpToken, person.twoFactorSecret))) {
+      // Counts toward the lockout like a wrong password, so the 6 digits can't be guessed endlessly.
+      await db.person.update({ where: { id: person.id }, data: recordFailedAttempt(person.failedLoginAttempts) });
       throw new AuthError("Invalid two-factor code.");
     }
   }
@@ -277,6 +279,8 @@ export async function resetPassword(token: string, newPassword: string) {
 
 export async function enrollTwoFactor(personId: string) {
   const person = await db.person.findUniqueOrThrow({ where: { id: personId } });
+  // Never replace an active secret: a hijacked session must not be able to swap the second factor.
+  if (person.twoFactorEnabledAt) throw new AuthError("Two-factor is already on for this account.", 409);
   const secret = generateTotpSecret();
   await db.person.update({ where: { id: personId }, data: { twoFactorSecret: secret } });
   return { secret, uri: totpEnrollmentUri(secret, person.email) };

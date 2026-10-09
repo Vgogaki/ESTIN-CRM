@@ -35,6 +35,13 @@ export async function requireAdminPermission(permission: Permission) {
   return admin;
 }
 
+/** Any signed-in admin, regardless of permissions: for things every staff member does to their own account. */
+export async function requireAdmin() {
+  const admin = await getCurrentAdmin();
+  if (!admin) throw new AuthError("Not logged in.", 401);
+  return admin;
+}
+
 export async function requireTrader() {
   const trader = await getCurrentTrader();
   if (!trader) throw new AuthError("Not logged in.", 401);

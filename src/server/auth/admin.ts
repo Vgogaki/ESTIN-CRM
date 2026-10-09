@@ -1,8 +1,8 @@
 import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { hashPassword, isPasswordAcceptable, verifyPassword } from "@/server/security/password";
-import { verifyTotpToken } from "@/server/security/totp";
 import { isLockedOut, recordFailedAttempt, resetLockout } from "@/server/security/lockout";
+import { verifySecondFactor } from "./admin-2fa";
 import { createAdminSession, destroyAdminSession } from "@/server/security/session";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
 
@@ -48,8 +48,32 @@ export async function loginAdmin(input: LoginInput) {
 
   if (admin.twoFactorEnabledAt) {
     if (!input.totpToken) throw new TwoFactorRequiredError();
-    if (!admin.twoFactorSecret || !(await verifyTotpToken(input.totpToken, admin.twoFactorSecret))) {
+    const method = await verifySecondFactor(admin, input.totpToken);
+    if (!method) {
+      // A wrong code counts toward the lockout like a wrong password: otherwise
+      // someone who knew the password could guess the 6 digits indefinitely.
+      await db.adminUser.update({ where: { id: admin.id }, data: recordFailedAttempt(admin.failedLoginAttempts) });
+      await writeAuditLog({
+        actorType: "admin",
+        actorId: admin.id,
+        action: "admin.login_failed",
+        entityType: "AdminUser",
+        entityId: admin.id,
+        reason: "Wrong two-factor code.",
+        ipAddress: input.ipAddress,
+      });
       throw new AuthError("Invalid two-factor code.");
+    }
+    if (method === "recovery") {
+      await writeAuditLog({
+        actorType: "admin",
+        actorId: admin.id,
+        action: "admin.recovery_code_used",
+        entityType: "AdminUser",
+        entityId: admin.id,
+        reason: "Signed in with a one-time recovery code.",
+        ipAddress: input.ipAddress,
+      });
     }
   }
 

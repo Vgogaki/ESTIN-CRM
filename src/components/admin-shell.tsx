@@ -26,7 +26,7 @@ export function AdminShell({
   pendingTaskCount = 0,
   children,
 }: {
-  admin: { name: string; roleName: string };
+  admin: { name: string; roleName: string; twoFactorEnabled: boolean };
   pendingTaskCount?: number;
   children: ReactNode;
 }) {
@@ -73,6 +73,11 @@ export function AdminShell({
           })}
         </nav>
         <div className="mt-auto border-t border-bd px-2 pt-3 text-xs">
+          {!admin.twoFactorEnabled && (
+            <Link href="/admin/account" className="mb-3 block rounded-md border border-warning-bd bg-warning-bg px-2 py-1.5 text-warning">
+              Two-factor is off. Turn it on
+            </Link>
+          )}
           <Link href="/admin/account" className="block hover:text-acc">
             <div className="text-ink">{admin.name}</div>
             <div className="text-sub">{admin.roleName}</div>

@@ -68,10 +68,11 @@ export default function AdminLoginForm() {
             />
           </Field>
           {needsTotp && (
-            <Field label="Two-factor code">
+            <Field label="Two-factor code" hint="The 6-digit code from your app, or one of your recovery codes.">
               <Input
                 value={totpToken}
                 onChange={(e) => setTotpToken(e.target.value)}
+                autoComplete="one-time-code"
                 autoFocus
               />
             </Field>

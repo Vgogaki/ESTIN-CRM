@@ -12,7 +12,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const tasks = await getPendingTasks();
 
   return (
-    <AdminShell admin={{ name: admin.name, roleName: admin.role.name }} pendingTaskCount={tasks.total}>
+    <AdminShell
+      admin={{ name: admin.name, roleName: admin.role.name, twoFactorEnabled: admin.twoFactorEnabledAt !== null }}
+      pendingTaskCount={tasks.total}
+    >
       {children}
     </AdminShell>
   );

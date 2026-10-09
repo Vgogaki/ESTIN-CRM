@@ -5,4 +5,9 @@ node_modules
 .env.*
 !.env.example
 npm-debug.log*
+*.log
 .kyc-storage
+# Not needed to build or run the app; keeps the build context small.
+reference
+prototypes
+docs

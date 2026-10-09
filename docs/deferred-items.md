@@ -89,7 +89,8 @@ These are the ones most worth looking at first.
 
 - **Playwright end-to-end tests** are in the agreed stack but not set up. Verification so far is unit tests (rules, expiry, payouts, offers, competitions, countries, challenge versioning) plus manual live checks; there is no automated browser suite.
 - **No CI** — deliberately left to whoever sets up hosting.
-- **2FA** has no disable/recovery-code flow.
+- **2FA** has no disable/recovery-code flow. **Admins have no enrolment screen at all** (admin login checks a code if one exists, but only traders can set one up), and it isn't mandatory for staff. Build before real customer data.
+- **Hosting hardening still open** (found while preparing the review copy, `hosting-review.md`): no Content-Security-Policy; the client IP is read from the first `X-Forwarded-For` value, which a visitor can influence behind a proxy (trust only the platform's proxy in production); fonts are fetched from Google at build time (a one-off failure fails the deploy; bundle them to remove it); no rate limiting beyond the per-account lockout; the admin "Test tools" page must not exist in production.
 - **Dev-only friction on this machine:** Prisma's migration engine is blocked by Windows Application Control, so migrations run through Docker (see `dev-environment-notes.md`). The dev server also needs a restart after every `prisma generate`.
 - **Production hosting, secrets, backups, monitoring** — the contractor's Foundation Setup (`deployment.md`). The database user needs privileges to create pg-boss's own schema.
 - **Independent security review** before real customer data (build plan Part 1).

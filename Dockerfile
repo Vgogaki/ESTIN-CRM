@@ -43,6 +43,12 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules ./node_modules
 
+# The seed scripts (prisma/seed*.ts) import the app's own server code and
+# resolve its "@/..." paths, so they need the source and tsconfig at runtime.
+# Only used when RUN_SEED / ALLOW_DEMO_SEED are switched on (docker-entrypoint.sh).
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh && chown nextjs:nextjs docker-entrypoint.sh
 

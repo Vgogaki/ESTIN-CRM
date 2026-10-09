@@ -29,7 +29,8 @@ export function fromAddress(): string {
 }
 
 export function appBaseUrl(): string {
-  return (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+  // RENDER_EXTERNAL_URL is set by the review host itself (docs/hosting-review.md), so links in emails need no manual setting there.
+  return (process.env.APP_BASE_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000").replace(/\/$/, "");
 }
 
 let smtp: Transporter | null = null;

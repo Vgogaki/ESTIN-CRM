@@ -9,13 +9,22 @@ import {
 } from "@/server/security/session";
 import { hasPermission, type Permission } from "@/server/permissions";
 import { PermissionDeniedError } from "@/server/permissions";
+import { touchAdmin } from "@/server/team";
 import { AuthError } from "./errors";
 
-export async function getCurrentAdmin() {
+/**
+ * Every back-office page and API call resolves the signed-in admin here, which
+ * makes it the natural place to note "this person just did something" for the
+ * sidebar's Team panel. The panel's own refreshing passes `touch: false`, so
+ * a tab left open and untouched doesn't read as "active now".
+ */
+export async function getCurrentAdmin(options: { touch?: boolean } = {}) {
   const token = (await cookies()).get(ADMIN_SESSION_COOKIE)?.value;
   if (!token) return null;
   const session = await getAdminSessionByToken(token);
-  return session?.adminUser ?? null;
+  const admin = session?.adminUser ?? null;
+  if (admin && options.touch !== false) touchAdmin(admin.id);
+  return admin;
 }
 
 export async function getCurrentTrader() {
@@ -36,8 +45,8 @@ export async function requireAdminPermission(permission: Permission) {
 }
 
 /** Any signed-in admin, regardless of permissions: for things every staff member does to their own account. */
-export async function requireAdmin() {
-  const admin = await getCurrentAdmin();
+export async function requireAdmin(options: { touch?: boolean } = {}) {
+  const admin = await getCurrentAdmin(options);
   if (!admin) throw new AuthError("Not logged in.", 401);
   return admin;
 }

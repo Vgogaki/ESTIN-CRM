@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { type ReactNode } from "react";
+import { TeamPanel, type TeamMember } from "@/components/team-panel";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
@@ -23,10 +24,12 @@ const NAV = [
 
 export function AdminShell({
   admin,
+  team,
   pendingTaskCount = 0,
   children,
 }: {
-  admin: { name: string; roleName: string; twoFactorEnabled: boolean };
+  admin: { id: string; name: string; roleName: string; twoFactorEnabled: boolean };
+  team: TeamMember[];
   pendingTaskCount?: number;
   children: ReactNode;
 }) {
@@ -72,7 +75,10 @@ export function AdminShell({
             );
           })}
         </nav>
-        <div className="mt-auto border-t border-bd px-2 pt-3 text-xs">
+        <div className="mt-auto">
+          <TeamPanel initial={team} selfId={admin.id} />
+        </div>
+        <div className="px-2 text-xs">
           {!admin.twoFactorEnabled && (
             <Link href="/admin/account" className="mb-3 block rounded-md border border-warning-bd bg-warning-bg px-2 py-1.5 text-warning">
               Two-factor is off. Turn it on

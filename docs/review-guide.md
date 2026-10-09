@@ -9,6 +9,8 @@ You're looking at the back office, trader portal and affiliate portal for a Cypr
 2. Go to `/admin/login` on the same address and sign in with **your email and your admin password** (also sent separately).
 3. Open **Your account** and turn on **two-factor**. Save the recovery codes.
 
+The **Team** panel at the bottom of the left-hand menu shows who else is around ("Active now", "Active 12 min ago"). "Active" means they last did something, not that they are signed in; it refreshes about once a minute.
+
 ## The tour (Back office, left-hand menu)
 1. **Pending tasks.** The system's to-do list, built automatically: a pass review (Chris), a KYC check (Elias), a funded trader with no verified KYC (Fiona), a breached trader awaiting an offer (Bianca), a support message (Alex).
 2. **Traders**, then open a few:

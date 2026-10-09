@@ -616,6 +616,10 @@ model AdminUser {
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
+  // When this person last did something in the back office (the sidebar's
+  // "Team" panel). Written at most once a minute; see src/server/team.ts.
+  lastActiveAt DateTime?
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

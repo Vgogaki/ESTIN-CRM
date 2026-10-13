@@ -194,6 +194,7 @@ Enforced **on the server**; screens only mirror them.
 - A replayed order never creates a second account or payment (idempotent on `order_ref`).
 - An offer's usage cap is enforced when issued, not only when redeemed.
 - Funded accounts can only be reached through pass review and an explicit, audited advance.
+- **Competing actions are serialised (13 Oct 2026).** Requesting a payout, deciding a payout, advancing an account, manually overriding an account, voiding an account and the time-limit sweep each run in a database transaction that first locks the account (and, where KYC matters, the trader), then re-reads and re-checks before writing. Two actions arriving at the same moment are handled one after the other: exactly one takes effect, the other is refused with a clear message (HTTP 409) or skipped, and there is one audit entry and one notification. The change and its audit entry commit together. The database also refuses a second pending payout for the same account outright (partial unique index). Proven by `npm run test:db` (`src/server/concurrency.db.test.ts`).
 
 ---
 
@@ -322,10 +323,11 @@ Delivery path: change → commit → push to GitHub → pull request → merge t
 
 | Area | Position |
 |---|---|
-| Unit tests | 198, covering the rules engine, payouts, expiry, offers, competitions, country rules, link detection, authentication helpers, CSV import, and more |
+| Unit tests | 198, covering the rules engine, payouts, expiry, offers, competitions, country rules, link detection, authentication helpers, CSV import, and more (`npm test`, no database needed) |
+| Database tests | 11, run against a real throwaway Postgres built from the migration files (`npm run test:db`): competing payout requests, competing approve/decline, duplicate advance, duplicate sweep, sweep versus breach, overlapping overrides and voids, the one-pending-payout database rule. Each was confirmed to fail on the code as it was before the fix |
 | Static checks | TypeScript strict and ESLint, clean |
 | Live verification | Each module was exercised end to end against a running instance with real requests |
-| Not present | Browser-automation (end-to-end) suite, load tests, penetration test, accessibility audit |
+| Not present | Browser-automation (end-to-end) suite, load tests, penetration test, accessibility audit, coverage report |
 
 ---
 

@@ -12,6 +12,7 @@ need.
 3. `npm run db:up` — starts Postgres in Docker (see `docker-compose.yml`).
 4. `npm run dev` — starts the app at http://localhost:3000.
 5. `npm run db:smoke` — quick check that the app can reach the database.
+6. `npm test` — fast unit tests, no database needed. `npm run test:db` — database tests (competing actions); needs step 1's database running, builds and drops its own throwaway database, never touches your data.
 
 ## Windows-on-ARM64 workaround: schema migrations
 

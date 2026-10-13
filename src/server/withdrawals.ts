@@ -5,6 +5,7 @@ import { notifyTrader } from "@/server/notifications";
 import { ValidationError } from "@/server/errors";
 import { enforceCountry, hasOpenPayoutReview, openReview } from "@/server/countries";
 import { hasOpenHighFlag } from "@/server/risk";
+import { lockAccount, lockPerson } from "@/server/row-lock";
 
 const { Decimal } = Prisma;
 const zero = new Decimal(0);
@@ -33,12 +34,28 @@ export function calculatePayoutAmount(availableProfit: Prisma.Decimal, splitPct:
   return availableProfit.times(splitPct).dividedBy(100);
 }
 
-async function reservedAmountFor(accountId: string): Promise<Prisma.Decimal> {
-  const reserved = await db.withdrawal.findMany({
+async function reservedAmountFor(accountId: string, client: Pick<Prisma.TransactionClient, "withdrawal"> = db): Promise<Prisma.Decimal> {
+  const reserved = await client.withdrawal.findMany({
     where: { accountId, status: { in: ["pending", "approved", "paid"] } },
     select: { amount: true },
   });
   return reserved.reduce((sum, w) => sum.plus(w.amount), zero);
+}
+
+/** True for Prisma's "unique constraint violated" error (here: the one-pending-payout-per-account rule). */
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Error && "code" in err && (err as { code?: string }).code === "P2002";
+}
+
+const ALREADY_PENDING = "A payout request is already pending for this account.";
+
+function assertAccountAllowsPayout(account: { voidedAt: Date | null; phase: string; status: string }) {
+  if (account.voidedAt) {
+    throw new ValidationError("This account is voided.");
+  }
+  if (account.phase !== "funded" || account.status !== "active") {
+    throw new ValidationError("Payouts are only available on a funded, active account.");
+  }
 }
 
 /**
@@ -49,22 +66,24 @@ async function reservedAmountFor(accountId: string): Promise<Prisma.Decimal> {
  * explicit elsewhere in the same doc: two-factor authentication is
  * required before requesting a payout (not just optional, unlike login),
  * and only one payout request can be in flight per account at a time.
+ *
+ * "One at a time" has to hold even when two requests arrive in the same
+ * moment (a double-click, two browser tabs). So the checks that matter are
+ * repeated inside a transaction that first locks the account row, and the
+ * database refuses a second pending payout for an account outright (partial
+ * unique index, migration 20261013150000). The checks before the transaction
+ * are only there to give fast, specific error messages.
  */
 export async function requestWithdrawal(input: { personId: string; accountId: string; ipAddress: string }) {
   const account = await db.account.findUniqueOrThrow({
     where: { id: input.accountId },
-    include: { challengeType: true, currentPhase: true, person: true, withdrawals: true },
+    include: { challengeType: true, currentPhase: true, person: true },
   });
 
   if (account.personId !== input.personId) {
     throw new ValidationError("Not your account.", 403);
   }
-  if (account.voidedAt) {
-    throw new ValidationError("This account is voided.");
-  }
-  if (account.phase !== "funded" || account.status !== "active") {
-    throw new ValidationError("Payouts are only available on a funded, active account.");
-  }
+  assertAccountAllowsPayout(account);
   if (account.person.kycStatus !== "verified") {
     throw new ValidationError("Identity verification is required before requesting a payout.");
   }
@@ -80,61 +99,87 @@ export async function requestWithdrawal(input: { personId: string; accountId: st
   if (countryAction === "review") {
     await openReview({ personId: input.personId, stage: "payout", countryCode: account.person.country });
   }
-  if (account.withdrawals.some((w) => w.status === "pending")) {
-    throw new ValidationError("A payout request is already pending for this account.");
+
+  let created;
+  try {
+    created = await db.$transaction(async (tx) => {
+      await lockAccount(tx, account.id);
+
+      // Re-read under the lock: the account (equity, phase, status) and the
+      // payouts may have changed since the read above.
+      const fresh = await tx.account.findUniqueOrThrow({
+        where: { id: account.id },
+        include: { challengeType: true, currentPhase: true },
+      });
+      assertAccountAllowsPayout(fresh);
+
+      const pending = await tx.withdrawal.findFirst({ where: { accountId: fresh.id, status: "pending" }, select: { id: true } });
+      if (pending) {
+        throw new ValidationError(ALREADY_PENDING, 409);
+      }
+
+      const splitPct = fresh.currentPhase?.profitSplitPct;
+      if (!splitPct) {
+        throw new ValidationError("This challenge phase has no profit split configured.");
+      }
+
+      const reserved = await reservedAmountFor(fresh.id, tx);
+      const availableProfit = calculateAvailableProfit({
+        equity: fresh.equity,
+        accountSize: fresh.challengeType.accountSize,
+        reservedAmount: reserved,
+      });
+      const amount = calculatePayoutAmount(availableProfit, splitPct);
+
+      const minPayout = fresh.currentPhase?.minPayoutAmount;
+      if (amount.lessThanOrEqualTo(0)) {
+        throw new ValidationError("No profit available to withdraw.");
+      }
+      if (minPayout && amount.lessThan(minPayout)) {
+        throw new ValidationError(
+          `Minimum payout is ${minPayout.toString()} ${fresh.challengeType.currency}; available amount is ${amount.toString()}.`,
+        );
+      }
+
+      const withdrawal = await tx.withdrawal.create({
+        data: { accountId: fresh.id, profit: availableProfit, splitPct, amount },
+      });
+
+      await writeAuditLog(
+        {
+          actorType: "trader",
+          actorId: input.personId,
+          action: "withdrawal.requested",
+          entityType: "Withdrawal",
+          entityId: withdrawal.id,
+          after: {
+            accountId: fresh.id,
+            profit: availableProfit.toString(),
+            splitPct: splitPct.toString(),
+            amount: amount.toString(),
+          },
+          ipAddress: input.ipAddress,
+        },
+        tx,
+      );
+
+      return { withdrawal, amount, currency: fresh.challengeType.currency };
+    });
+  } catch (err) {
+    // Backstop: the database's own one-pending-payout-per-account rule.
+    if (isUniqueViolation(err)) throw new ValidationError(ALREADY_PENDING, 409);
+    throw err;
   }
-
-  const splitPct = account.currentPhase?.profitSplitPct;
-  if (!splitPct) {
-    throw new ValidationError("This challenge phase has no profit split configured.");
-  }
-
-  const reserved = await reservedAmountFor(account.id);
-  const availableProfit = calculateAvailableProfit({
-    equity: account.equity,
-    accountSize: account.challengeType.accountSize,
-    reservedAmount: reserved,
-  });
-  const amount = calculatePayoutAmount(availableProfit, splitPct);
-
-  const minPayout = account.currentPhase?.minPayoutAmount;
-  if (amount.lessThanOrEqualTo(0)) {
-    throw new ValidationError("No profit available to withdraw.");
-  }
-  if (minPayout && amount.lessThan(minPayout)) {
-    throw new ValidationError(
-      `Minimum payout is ${minPayout.toString()} ${account.challengeType.currency}; available amount is ${amount.toString()}.`,
-    );
-  }
-
-  const withdrawal = await db.withdrawal.create({
-    data: { accountId: account.id, profit: availableProfit, splitPct, amount },
-  });
-
-  await writeAuditLog({
-    actorType: "trader",
-    actorId: input.personId,
-    action: "withdrawal.requested",
-    entityType: "Withdrawal",
-    entityId: withdrawal.id,
-    after: {
-      accountId: account.id,
-      profit: availableProfit.toString(),
-      splitPct: splitPct.toString(),
-      amount: amount.toString(),
-    },
-    ipAddress: input.ipAddress,
-  });
 
   await notifyTrader({
     personId: input.personId,
     type: "payout_requested",
     title: "Payout requested",
-    body: `Your payout request for ${amount.toString()} ${account.challengeType.currency} has been submitted.`,
+    body: `Your payout request for ${created.amount.toString()} ${created.currency} has been submitted.`,
     link: "/portal",
   });
 
-  return withdrawal;
+  return created.withdrawal;
 }
 
 /** Most recent admin to decide this person's KYC, for the segregation-of-duties check below. Null if KYC was never decided (or only auto-set). */
@@ -154,6 +199,14 @@ async function lastKycDecisionActorId(personId: string): Promise<string | null> 
  * "Optional four-eyes approval above a configurable threshold"
  * (modules-to-design.md §1.3) is explicitly optional and has no threshold
  * decided yet, so it isn't built — flagged here rather than guessed at.
+ *
+ * Two admins acting on the same payout at the same moment (one approves, one
+ * declines; or both approve) must produce exactly one decision. The
+ * decision is therefore made inside a transaction that (1) locks the
+ * trader's row, so a KYC change cannot slip in between the check below and
+ * the approval, and (2) changes the payout only if it is STILL pending — the
+ * loser of a race finds it already decided and gets a clear message instead
+ * of a second audit entry and a second email.
  */
 export async function decideWithdrawal(input: {
   withdrawalId: string;
@@ -167,57 +220,79 @@ export async function decideWithdrawal(input: {
     include: { account: { include: { challengeType: true, person: true } } },
   });
 
+  const ALREADY_DECIDED = "This payout has already been decided.";
   if (withdrawal.status !== "pending") {
-    throw new ValidationError("This payout has already been decided.");
+    throw new ValidationError(ALREADY_DECIDED, 409);
   }
   if (input.decision === "declined" && !input.note?.trim()) {
     throw new ValidationError("A reason is required when declining a payout.");
   }
-  if (input.decision === "approved") {
-    // CLAUDE.md: payout approval is blocked unless KYC is verified AND there
-    // is no unresolved identity mismatch — re-checked here, at the moment of
-    // approval, not only when the request was made. Same for a payout-stage
-    // country review (6.3).
-    if (withdrawal.account.person.kycStatus !== "verified") {
-      throw new ValidationError("KYC must be verified before a payout can be approved.");
-    }
-    if (withdrawal.account.person.identityMismatch) {
-      throw new ValidationError("This trader has an unresolved identity mismatch — resolve it before approving a payout.");
-    }
-    if (await hasOpenPayoutReview(withdrawal.account.personId)) {
-      throw new ValidationError("This trader has an open country review for payouts — clear it before approving.");
-    }
-    if (await hasOpenHighFlag(withdrawal.account.personId)) {
-      throw new ValidationError("This trader has an open high-severity risk flag. Review or dismiss it (with a reason) before approving a payout.");
-    }
-    const kycActorId = await lastKycDecisionActorId(withdrawal.account.personId);
-    if (kycActorId && kycActorId === input.adminId) {
-      throw new ValidationError(
-        "Segregation of duties: you reviewed this trader's KYC, so you can't also approve their payout. Ask another admin to approve it.",
-      );
-    }
-  }
 
-  const updated = await db.withdrawal.update({
-    where: { id: input.withdrawalId },
-    data: {
-      status: input.decision,
-      decidedById: input.adminId,
-      decidedAt: new Date(),
-      decisionNote: input.note?.trim() || null,
-    },
-  });
+  const updated = await db.$transaction(async (tx) => {
+    await lockPerson(tx, withdrawal.account.personId);
 
-  await writeAuditLog({
-    actorType: "admin",
-    actorId: input.adminId,
-    action: input.decision === "approved" ? "withdrawal.approved" : "withdrawal.declined",
-    entityType: "Withdrawal",
-    entityId: withdrawal.id,
-    before: { status: withdrawal.status },
-    after: { status: updated.status },
-    reason: input.note,
-    ipAddress: input.ipAddress,
+    if (input.decision === "approved") {
+      // CLAUDE.md: payout approval is blocked unless KYC is verified AND there
+      // is no unresolved identity mismatch — re-checked here, at the moment of
+      // approval, under the trader's row lock and against a fresh read, not
+      // only when the request was made. Same for a payout-stage country
+      // review (6.3).
+      const person = await tx.person.findUniqueOrThrow({
+        where: { id: withdrawal.account.personId },
+        select: { kycStatus: true, identityMismatch: true },
+      });
+      if (person.kycStatus !== "verified") {
+        throw new ValidationError("KYC must be verified before a payout can be approved.");
+      }
+      if (person.identityMismatch) {
+        throw new ValidationError("This trader has an unresolved identity mismatch — resolve it before approving a payout.");
+      }
+      if (await hasOpenPayoutReview(withdrawal.account.personId)) {
+        throw new ValidationError("This trader has an open country review for payouts — clear it before approving.");
+      }
+      if (await hasOpenHighFlag(withdrawal.account.personId)) {
+        throw new ValidationError("This trader has an open high-severity risk flag. Review or dismiss it (with a reason) before approving a payout.");
+      }
+      const kycActorId = await lastKycDecisionActorId(withdrawal.account.personId);
+      if (kycActorId && kycActorId === input.adminId) {
+        throw new ValidationError(
+          "Segregation of duties: you reviewed this trader's KYC, so you can't also approve their payout. Ask another admin to approve it.",
+        );
+      }
+    }
+
+    // Only the first decision gets through: the change applies only while the
+    // payout is still pending.
+    const changed = await tx.withdrawal.updateMany({
+      where: { id: input.withdrawalId, status: "pending" },
+      data: {
+        status: input.decision,
+        decidedById: input.adminId,
+        decidedAt: new Date(),
+        decisionNote: input.note?.trim() || null,
+      },
+    });
+    if (changed.count === 0) {
+      throw new ValidationError(ALREADY_DECIDED, 409);
+    }
+    const decided = await tx.withdrawal.findUniqueOrThrow({ where: { id: input.withdrawalId } });
+
+    await writeAuditLog(
+      {
+        actorType: "admin",
+        actorId: input.adminId,
+        action: input.decision === "approved" ? "withdrawal.approved" : "withdrawal.declined",
+        entityType: "Withdrawal",
+        entityId: withdrawal.id,
+        before: { status: "pending" },
+        after: { status: decided.status },
+        reason: input.note,
+        ipAddress: input.ipAddress,
+      },
+      tx,
+    );
+
+    return decided;
   });
 
   await notifyTrader({

@@ -20,7 +20,9 @@ if [ "$RUN_SEED" = "on" ]; then
   node node_modules/tsx/dist/cli.mjs prisma/seed.ts
 fi
 if [ "$ALLOW_DEMO_SEED" = "yes" ]; then
-  node node_modules/tsx/dist/cli.mjs prisma/seed-demo.ts
+  # Demo data is a convenience for the review copy. If it can't be created for any
+  # reason, the app must still start (a failure here once took the whole site down).
+  node node_modules/tsx/dist/cli.mjs prisma/seed-demo.ts || echo "[entrypoint] Demo seed did not complete; starting the app anyway."
 fi
 
 exec "$@"

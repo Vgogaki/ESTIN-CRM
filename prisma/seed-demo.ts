@@ -31,12 +31,18 @@ async function main() {
     console.log("Demo seed skipped (ALLOW_DEMO_SEED is not 'yes').");
     return;
   }
+  // Demo data already there: nothing to do. Checked FIRST, because a review copy
+  // soon gains real-looking people (the co-founder, anyone who registers to try it),
+  // and that must not stop the app starting.
+  if ((await db.person.count({ where: { email: { endsWith: `@${DOMAIN}` } } })) > 0) {
+    console.log("Demo data already present — nothing to do.");
+    return;
+  }
+  // No demo data, but real people exist: never mix fake data into them. Skip (and say
+  // so) rather than fail: this runs on every start, and refusing must not take the site down.
   const real = await db.person.count({ where: { NOT: { email: { endsWith: `@${DOMAIN}` } } } });
   if (real > 0) {
-    throw new Error(`Refusing to seed demo data: ${real} real (non-demo) person(s) already exist in this database.`);
-  }
-  if ((await db.person.count()) > 0) {
-    console.log("Demo data already present — nothing to do.");
+    console.warn(`Demo seed skipped for safety: ${real} real (non-demo) person(s) already exist in this database.`);
     return;
   }
   const admin = await db.adminUser.findFirst({ orderBy: { createdAt: "asc" } });

@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { issueAffiliateInvite } from "@/server/auth/affiliate";
 import { notifyTrader } from "@/server/notifications";
+import { ensureReferral, resolveCode } from "@/server/affiliate-referrals";
 
 /**
  * Module 7.4 — affiliates. Whether affiliates are in V1 at all, and the
@@ -19,13 +20,8 @@ import { notifyTrader } from "@/server/notifications";
 // Pure logic (unit-tested)
 // ---------------------------------------------------------------------------
 
-export function normalizeCode(raw: string): string {
-  const code = raw.trim().toUpperCase();
-  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) {
-    throw new ValidationError("A code is 3 to 32 letters, numbers, dashes or underscores.");
-  }
-  return code;
-}
+// Moved to affiliate-code.ts (pure helpers); re-exported so existing imports keep working.
+export { normalizeCode } from "@/server/affiliate-code";
 
 /** Percentage of the amount actually paid, rounded to cents (half up). Never floating point. */
 export function calculateCommission(baseAmount: Prisma.Decimal, ratePct: Prisma.Decimal): Prisma.Decimal {
@@ -65,10 +61,14 @@ export function nextCommissionStatus(current: CommissionStatus, action: Commissi
 // Database
 // ---------------------------------------------------------------------------
 
+/**
+ * Staff create the affiliate and choose the commission; they do NOT choose a
+ * referral code. The affiliate generates their own after first signing in
+ * (affiliate-referrals.ts, generateAffiliateCode), and it is logged.
+ */
 export async function createAffiliate(input: {
   name: string;
   email: string;
-  code: string;
   commissionPct: string;
   linkedTraderEmail?: string | null;
   note?: string | null;
@@ -78,7 +78,6 @@ export async function createAffiliate(input: {
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
   if (!name || !email) throw new ValidationError("Name and email are required.");
-  const code = normalizeCode(input.code);
   let pct: Prisma.Decimal;
   try {
     pct = new Prisma.Decimal(input.commissionPct);
@@ -93,12 +92,12 @@ export async function createAffiliate(input: {
     if (!person) throw new ValidationError("No trader has that email. Leave the field empty if the affiliate isn't a trader.");
     personId = person.id;
   }
-  if (await db.affiliate.findFirst({ where: { OR: [{ code }, { email }] } })) {
-    throw new ValidationError("An affiliate with that code or email already exists.", 409);
+  if (await db.affiliate.findFirst({ where: { email } })) {
+    throw new ValidationError("An affiliate with that email already exists.", 409);
   }
 
   const affiliate = await db.affiliate.create({
-    data: { name, email, code, commissionPct: pct, personId, note: input.note?.trim() || null, createdById: input.adminId },
+    data: { name, email, commissionPct: pct, personId, note: input.note?.trim() || null, createdById: input.adminId },
   });
   await writeAuditLog({
     actorType: "admin",
@@ -106,7 +105,7 @@ export async function createAffiliate(input: {
     action: "affiliate.created",
     entityType: "Affiliate",
     entityId: affiliate.id,
-    after: { name, code, commissionPct: pct.toString(), linkedTrader: personId !== null },
+    after: { name, commissionPct: pct.toString(), linkedTrader: personId !== null },
     ipAddress: input.ipAddress,
   });
   // Never lets a broken mail setup fail creating the affiliate record itself.
@@ -117,7 +116,7 @@ export async function createAffiliate(input: {
       personId,
       type: "affiliate_added",
       title: "You're now also an ESTIN affiliate",
-      body: `You've been set up as an affiliate with referral code ${code}. Sign in to the affiliate portal to see your referrals and commissions.`,
+      body: "You've been set up as an affiliate. Sign in to the affiliate portal to generate your referral code and see your referrals and commissions.",
       link: "/affiliate/login",
     }).catch((err) => console.error("[affiliates] could not notify linked trader", err));
   }
@@ -152,21 +151,43 @@ export async function recordCommissionForOrder(input: { orderRef: string; affili
     const existing = await db.affiliateCommission.findUnique({ where: { paymentId: payment.id } });
     if (existing) return existing;
 
-    let code: string;
-    try {
-      code = normalizeCode(input.affiliateCode);
-    } catch {
-      code = "";
-    }
-    const affiliate = code ? await db.affiliate.findUnique({ where: { code } }) : null;
-    if (!affiliate || affiliate.status !== "active") {
+    // Only a code that is in the register counts. Anything else (a made-up
+    // code, a deactivated one, a suspended affiliate's) earns nothing.
+    const resolved = await resolveCode(input.affiliateCode);
+    if (resolved.kind !== "ok") {
       await writeAuditLog({
         actorType: "system",
         actorId: null,
         action: "affiliate.code_ignored",
         entityType: "Payment",
         entityId: payment.id,
-        reason: affiliate ? "Affiliate is suspended." : "Unknown affiliate code.",
+        reason:
+          resolved.kind === "suspended" ? "Affiliate is suspended." : resolved.kind === "revoked" ? "Code has been deactivated." : "Unknown affiliate code.",
+        after: { affiliateCode: input.affiliateCode },
+        ipAddress: input.ipAddress,
+      });
+      return null;
+    }
+    const affiliate = resolved.affiliate;
+
+    // One introducer per trader, first wins: a code belonging to someone else
+    // earns nothing on a trader who was introduced by another affiliate.
+    // (Introducing yourself is not blocked here: it still goes to review below, as before.)
+    const outcome = await ensureReferral({
+      person: { id: payment.person.id, email: payment.person.email },
+      affiliate,
+      codeId: resolved.code.id,
+      source: "order_code",
+      ipAddress: input.ipAddress,
+    });
+    if (outcome === "other_affiliate") {
+      await writeAuditLog({
+        actorType: "system",
+        actorId: null,
+        action: "affiliate.code_ignored",
+        entityType: "Payment",
+        entityId: payment.id,
+        reason: "This trader was already introduced by another affiliate.",
         after: { affiliateCode: input.affiliateCode },
         ipAddress: input.ipAddress,
       });
@@ -299,9 +320,14 @@ function totals(commissions: { status: CommissionStatus; amount: Prisma.Decimal;
 }
 
 export async function listAffiliates() {
-  const rows = await db.affiliate.findMany({ include: { commissions: true }, orderBy: { createdAt: "desc" } });
+  const rows = await db.affiliate.findMany({
+    include: { commissions: true, codes: { where: { revokedAt: null } }, _count: { select: { referrals: true } } },
+    orderBy: { createdAt: "desc" },
+  });
   return rows.map((a) => ({
     ...a,
+    activeCode: a.codes[0]?.code ?? null,
+    introducedCount: a._count.referrals,
     totals: totals(a.commissions),
     flaggedOpen: a.commissions.filter((c) => c.flag && c.status === "pending").length,
     salesCount: a.commissions.filter((c) => c.status !== "voided").length,
@@ -311,6 +337,14 @@ export async function listAffiliates() {
 export async function getAffiliate(id: string) {
   const a = await db.affiliate.findUnique({ where: { id }, include: { commissions: { orderBy: { createdAt: "desc" } } } });
   return a ? { ...a, totals: totals(a.commissions) } : null;
+}
+
+/** Referral-code figures for the affiliate portal: the active code (if any) and the last deactivated one. */
+async function codeStateFor(affiliateId: string) {
+  const codes = await db.affiliateCode.findMany({ where: { affiliateId }, orderBy: { createdAt: "desc" } });
+  const active = codes.find((c) => c.revokedAt === null) ?? null;
+  const lastRevoked = codes.find((c) => c.revokedAt !== null) ?? null;
+  return { active, lastRevoked };
 }
 
 /**
@@ -323,11 +357,13 @@ export async function getAffiliate(id: string) {
 export async function getAffiliateSelf(id: string) {
   const a = await db.affiliate.findUnique({ where: { id }, include: { commissions: { orderBy: { createdAt: "desc" } } } });
   if (!a) return null;
+  const { active, lastRevoked } = await codeStateFor(a.id);
   return {
     id: a.id,
     name: a.name,
     email: a.email,
-    code: a.code,
+    code: active ? { value: active.code, createdAt: active.createdAt } : null,
+    lastDeactivatedCode: lastRevoked ? { value: lastRevoked.code, revokedAt: lastRevoked.revokedAt! } : null,
     commissionPct: a.commissionPct,
     status: a.status,
     totals: totals(a.commissions),

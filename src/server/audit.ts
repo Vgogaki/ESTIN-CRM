@@ -21,9 +21,13 @@ type WriteAuditLogInput = {
  * append-only at the database level (see migration
  * 20260923_audit_log_immutable) — UPDATE/DELETE are rejected even for a
  * superuser role, so this function only ever does a plain create.
+ *
+ * Pass a transaction client as the second argument when the entry describes a
+ * change made in that same transaction, so the change and its audit entry
+ * either both happen or neither does.
  */
-export async function writeAuditLog(input: WriteAuditLogInput) {
-  await db.auditLog.create({
+export async function writeAuditLog(input: WriteAuditLogInput, client: Pick<Prisma.TransactionClient, "auditLog"> = db) {
+  await client.auditLog.create({
     data: {
       actorType: input.actorType,
       actorId: input.actorId,

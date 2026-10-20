@@ -5,6 +5,7 @@ import { ValidationError } from "@/server/errors";
 import { determineAutoTransition, evaluateAccount } from "@/server/rules";
 import { notifyTrader } from "@/server/notifications";
 import { planAdvance } from "@/server/phase-advance";
+import { lockAccount, lockPerson } from "@/server/row-lock";
 
 export async function listTraders(search?: string, statusFilter?: AccountStatus) {
   return db.person.findMany({
@@ -95,84 +96,105 @@ export async function updateAccountState(input: {
     throw new ValidationError("A reason is required for a manual override.");
   }
 
-  const before = await db.account.findUniqueOrThrow({
-    where: { id: input.accountId },
-    include: { currentPhase: true, challengeType: true },
-  });
-  const updated = await db.account.update({ where: { id: input.accountId }, data: input.patch });
+  // The override and the automatic breach/pass step that follows it are one
+  // transaction under the account's row lock: another override, the expiry
+  // job or an "advance" cannot change the account between the two steps, and
+  // the "before" recorded in the audit log is exactly the state that was
+  // replaced, even when two staff members save at the same moment.
+  const outcome = await db.$transaction(async (tx) => {
+    await lockAccount(tx, input.accountId);
 
-  await writeAuditLog({
-    actorType: "admin",
-    actorId: input.adminId,
-    action: "account.manual_override",
-    entityType: "Account",
-    entityId: input.accountId,
-    before: serializeAccountState(before),
-    after: serializeAccountState(updated),
-    reason: input.reason,
-    ipAddress: input.ipAddress,
-  });
-
-  const statusSetByAdmin = input.patch.status !== undefined && input.patch.status !== before.status;
-  const phaseSetByAdmin = input.patch.phase !== undefined && input.patch.phase !== before.phase;
-
-  if (
-    !statusSetByAdmin &&
-    !phaseSetByAdmin &&
-    before.status === "active" &&
-    before.phase === "evaluation" &&
-    before.currentPhase
-  ) {
-    const evalResult = evaluateAccount({
-      accountSize: before.challengeType.accountSize,
-      equity: updated.equity,
-      dayStartEquity: updated.dayStartEquity,
-      peakEquity: updated.peakEquity,
-      tradingDays: updated.tradingDays,
-      profitTargetPct: before.currentPhase.profitTargetPct,
-      dailyLossPct: before.currentPhase.dailyLossPct,
-      maxLossPct: before.currentPhase.maxLossPct,
-      drawdownType: before.currentPhase.drawdownType,
-      minTradingDays: before.currentPhase.minTradingDays,
+    const before = await tx.account.findUniqueOrThrow({
+      where: { id: input.accountId },
+      include: { currentPhase: true, challengeType: true },
     });
-    const transition = determineAutoTransition(evalResult);
+    const updated = await tx.account.update({ where: { id: input.accountId }, data: input.patch });
 
-    if (transition) {
-      const transitionPatch =
-        transition.kind === "breach"
-          ? { status: "breached" as const, phase: "closed" as const, endedAt: new Date(), closeReason: transition.reason }
-          : { phase: "pass_review" as const };
-
-      const final = await db.account.update({ where: { id: input.accountId }, data: transitionPatch });
-
-      await writeAuditLog({
-        actorType: "system",
-        actorId: null,
-        action: transition.kind === "breach" ? "account.auto_breached" : "account.auto_pass_review",
+    await writeAuditLog(
+      {
+        actorType: "admin",
+        actorId: input.adminId,
+        action: "account.manual_override",
         entityType: "Account",
         entityId: input.accountId,
-        before: serializeAccountState(updated),
-        after: serializeAccountState(final),
-        reason: transition.reason,
+        before: serializeAccountState(before),
+        after: serializeAccountState(updated),
+        reason: input.reason,
         ipAddress: input.ipAddress,
-      });
+      },
+      tx,
+    );
 
-      await notifyTrader({
-        personId: before.personId,
-        type: transition.kind === "breach" ? "breach" : "phase_passed",
-        title: transition.kind === "breach" ? "Account closed — rule breached" : "Profit target reached",
-        body:
+    const statusSetByAdmin = input.patch.status !== undefined && input.patch.status !== before.status;
+    const phaseSetByAdmin = input.patch.phase !== undefined && input.patch.phase !== before.phase;
+
+    if (
+      !statusSetByAdmin &&
+      !phaseSetByAdmin &&
+      before.status === "active" &&
+      before.phase === "evaluation" &&
+      before.currentPhase
+    ) {
+      const evalResult = evaluateAccount({
+        accountSize: before.challengeType.accountSize,
+        equity: updated.equity,
+        dayStartEquity: updated.dayStartEquity,
+        peakEquity: updated.peakEquity,
+        tradingDays: updated.tradingDays,
+        profitTargetPct: before.currentPhase.profitTargetPct,
+        dailyLossPct: before.currentPhase.dailyLossPct,
+        maxLossPct: before.currentPhase.maxLossPct,
+        drawdownType: before.currentPhase.drawdownType,
+        minTradingDays: before.currentPhase.minTradingDays,
+      });
+      const transition = determineAutoTransition(evalResult);
+
+      if (transition) {
+        const transitionPatch =
           transition.kind === "breach"
-            ? `Your ${before.challengeType.name} account was closed: ${transition.reason}`
-            : `Your ${before.challengeType.name} account hit its profit target and is now under review.`,
-        link: "/portal",
-      });
+            ? { status: "breached" as const, phase: "closed" as const, endedAt: new Date(), closeReason: transition.reason }
+            : { phase: "pass_review" as const };
 
-      return final;
+        const final = await tx.account.update({ where: { id: input.accountId }, data: transitionPatch });
+
+        await writeAuditLog(
+          {
+            actorType: "system",
+            actorId: null,
+            action: transition.kind === "breach" ? "account.auto_breached" : "account.auto_pass_review",
+            entityType: "Account",
+            entityId: input.accountId,
+            before: serializeAccountState(updated),
+            after: serializeAccountState(final),
+            reason: transition.reason,
+            ipAddress: input.ipAddress,
+          },
+          tx,
+        );
+
+        return { account: final, transition, personId: before.personId, challengeTypeName: before.challengeType.name };
+      }
     }
+
+    return { account: updated, transition: null };
+  });
+
+  // Emails and in-app notices go out only after the change has committed.
+  if (outcome.transition) {
+    const { transition, personId, challengeTypeName } = outcome;
+    await notifyTrader({
+      personId,
+      type: transition.kind === "breach" ? "breach" : "phase_passed",
+      title: transition.kind === "breach" ? "Account closed — rule breached" : "Profit target reached",
+      body:
+        transition.kind === "breach"
+          ? `Your ${challengeTypeName} account was closed: ${transition.reason}`
+          : `Your ${challengeTypeName} account hit its profit target and is now under review.`,
+      link: "/portal",
+    });
   }
 
-  return updated;
+  return outcome.account;
 }
 
 export async function voidAccount(input: {
@@ -185,22 +207,37 @@ export async function voidAccount(input: {
     throw new ValidationError("A reason is required to void an account.");
   }
 
-  const updated = await db.account.update({
-    where: { id: input.accountId },
-    data: { voidedAt: new Date(), voidReason: input.reason, voidedById: input.adminId },
-  });
+  // Under the account lock so a void and a payout request / advance made at
+  // the same moment are handled one after the other, and so a second void
+  // cannot overwrite the first one's reason and actor.
+  return db.$transaction(async (tx) => {
+    await lockAccount(tx, input.accountId);
 
-  await writeAuditLog({
-    actorType: "admin",
-    actorId: input.adminId,
-    action: "account.voided",
-    entityType: "Account",
-    entityId: input.accountId,
-    reason: input.reason,
-    ipAddress: input.ipAddress,
-  });
+    const current = await tx.account.findUniqueOrThrow({ where: { id: input.accountId }, select: { voidedAt: true } });
+    if (current.voidedAt) {
+      throw new ValidationError("This account is already voided.", 409);
+    }
 
-  return updated;
+    const updated = await tx.account.update({
+      where: { id: input.accountId },
+      data: { voidedAt: new Date(), voidReason: input.reason, voidedById: input.adminId },
+    });
+
+    await writeAuditLog(
+      {
+        actorType: "admin",
+        actorId: input.adminId,
+        action: "account.voided",
+        entityType: "Account",
+        entityId: input.accountId,
+        reason: input.reason,
+        ipAddress: input.ipAddress,
+      },
+      tx,
+    );
+
+    return updated;
+  });
 }
 
 export async function setKycStatus(input: {
@@ -293,62 +330,81 @@ export async function advanceAccount(input: {
   resetEquity: boolean;
   note?: string;
 }) {
-  const account = await db.account.findUniqueOrThrow({
-    where: { id: input.accountId },
-    include: { person: true, challengeType: { include: { phases: true } } },
-  });
+  const owner = await db.account.findUniqueOrThrow({ where: { id: input.accountId }, select: { personId: true } });
 
-  const plan = planAdvance({
-    accountPhase: account.phase,
-    accountStatus: account.status,
-    voided: account.voidedAt !== null,
-    currentPhaseId: account.currentPhaseId,
-    phases: account.challengeType.phases,
-    kycStatus: account.person.kycStatus,
-    kycTiming: account.challengeType.kycTiming,
-  });
-  if (!plan.ok) throw new ValidationError(plan.reason);
+  // The plan is worked out from a fresh read taken under the row locks (person
+  // first, then account — see row-lock.ts). A second "advance" for the same
+  // account therefore waits, then finds the account already moved on and is
+  // refused by planAdvance, instead of writing a second time.
+  const done = await db.$transaction(async (tx) => {
+    await lockPerson(tx, owner.personId);
+    await lockAccount(tx, input.accountId);
 
-  const target = plan.target;
-  const size = account.challengeType.accountSize;
-  const updated = await db.account.update({
-    where: { id: account.id },
-    data: {
-      currentPhaseId: target.id,
-      phase: target.isFunded ? "funded" : "evaluation",
-      phaseStartedAt: new Date(),
-      ...(input.resetEquity
-        ? { equity: size, balance: size, dayStartEquity: size, peakEquity: size, tradingDays: 0 }
-        : {}),
-    },
-  });
+    const account = await tx.account.findUniqueOrThrow({
+      where: { id: input.accountId },
+      include: { person: true, challengeType: { include: { phases: true } } },
+    });
 
-  await writeAuditLog({
-    actorType: "admin",
-    actorId: input.adminId,
-    action: "account.advanced",
-    entityType: "Account",
-    entityId: account.id,
-    before: { ...serializeAccountState(account), currentPhaseId: account.currentPhaseId },
-    after: {
-      ...serializeAccountState(updated),
-      currentPhaseId: target.id,
-      phaseLabel: target.label,
-      resetEquity: input.resetEquity,
-    },
-    reason: input.note?.trim() || `Advanced to ${target.label}.`,
-    ipAddress: input.ipAddress,
+    const plan = planAdvance({
+      accountPhase: account.phase,
+      accountStatus: account.status,
+      voided: account.voidedAt !== null,
+      currentPhaseId: account.currentPhaseId,
+      phases: account.challengeType.phases,
+      kycStatus: account.person.kycStatus,
+      kycTiming: account.challengeType.kycTiming,
+    });
+    if (!plan.ok) throw new ValidationError(plan.reason);
+
+    const target = plan.target;
+    const size = account.challengeType.accountSize;
+    const updated = await tx.account.update({
+      where: { id: account.id },
+      data: {
+        currentPhaseId: target.id,
+        phase: target.isFunded ? "funded" : "evaluation",
+        // Back to "active" whatever it was (e.g. a hand-set "passed"): payouts and the
+        // rules engine only treat an active account as live.
+        status: "active",
+        phaseStartedAt: new Date(),
+        ...(input.resetEquity
+          ? { equity: size, balance: size, dayStartEquity: size, peakEquity: size, tradingDays: 0 }
+          : {}),
+      },
+    });
+
+    await writeAuditLog(
+      {
+        actorType: "admin",
+        actorId: input.adminId,
+        action: "account.advanced",
+        entityType: "Account",
+        entityId: account.id,
+        before: { ...serializeAccountState(account), currentPhaseId: account.currentPhaseId },
+        after: {
+          ...serializeAccountState(updated),
+          currentPhaseId: target.id,
+          phaseLabel: target.label,
+          resetEquity: input.resetEquity,
+        },
+        reason: input.note?.trim() || `Advanced to ${target.label}.`,
+        ipAddress: input.ipAddress,
+      },
+      tx,
+    );
+
+    return { updated, target, personId: account.personId, challengeTypeName: account.challengeType.name };
   });
 
   await notifyTrader({
-    personId: account.personId,
+    personId: done.personId,
     type: "phase_passed",
-    title: target.isFunded ? "Your account is funded" : "Phase passed",
-    body: target.isFunded
-      ? `Your ${account.challengeType.name} account has been verified and is now funded.`
-      : `Your ${account.challengeType.name} account has moved on to ${target.label}.`,
+    title: done.target.isFunded ? "Your account is funded" : "Phase passed",
+    body: done.target.isFunded
+      ? `Your ${done.challengeTypeName} account has been verified and is now funded.`
+      : `Your ${done.challengeTypeName} account has moved on to ${done.target.label}.`,
     link: "/portal",
   });
 
-  return updated;
+  return done.updated;
 }

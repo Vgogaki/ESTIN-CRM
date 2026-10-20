@@ -8,6 +8,7 @@ import { generateOpaqueToken, hashToken } from "@/server/security/tokens";
 import { AuthError, LockedOutError, TwoFactorRequiredError } from "./errors";
 import { enforceCountry, openReview } from "@/server/countries";
 import { scanPerson } from "@/server/account-links";
+import { attributeNewPerson } from "@/server/affiliate-referrals";
 import { noteLoginIp } from "@/server/login-geo";
 import { queueEmail } from "@/server/email/outbox";
 import { appBaseUrl } from "@/server/email/transport";
@@ -29,6 +30,8 @@ export async function registerTrader(input: {
   password: string;
   /** Opt-in to offers and promotions. Off unless the trader ticks the box. */
   marketingConsent?: boolean;
+  /** An affiliate's referral code, from the sign-up link or typed in. Optional; ignored unless it is in the register. */
+  referralCode?: string | null;
   ipAddress: string;
 }) {
   const email = input.email.trim().toLowerCase();
@@ -72,6 +75,10 @@ export async function registerTrader(input: {
   });
 
   await scanPerson(person.id);
+
+  // Link to the affiliate who introduced them: a code from the sign-up link, or
+  // an introduction the affiliate recorded earlier for this email. Never throws.
+  await attributeNewPerson({ person, referralCode: input.referralCode, source: "registration_code", ipAddress: input.ipAddress });
 
   if (countryAction === "review") {
     await openReview({ personId: person.id, stage: "registration", countryCode: input.country });

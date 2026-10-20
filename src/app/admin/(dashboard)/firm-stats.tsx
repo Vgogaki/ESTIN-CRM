@@ -72,10 +72,10 @@ export default function FirmStats({ stats, tasks, recentTraders }: Props) {
 
       <p className="mt-6 mb-2 text-xs font-medium tracking-wide text-sub uppercase">Needs attention</p>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Link href="/admin/pending-tasks">
+        <Link href="/admin/tasks">
           <Stat label="Ready to pass" value={String(tasks.readyToPass)} />
         </Link>
-        <Link href="/admin/pending-tasks">
+        <Link href="/admin/tasks">
           <Stat label="Breach flagged" value={String(tasks.flagged)} />
         </Link>
         <Link href="/admin/withdrawals">
@@ -85,7 +85,7 @@ export default function FirmStats({ stats, tasks, recentTraders }: Props) {
             sub={`${tasks.pendingWithdrawals} request${tasks.pendingWithdrawals === 1 ? "" : "s"}`}
           />
         </Link>
-        <Link href="/admin/pending-tasks">
+        <Link href="/admin/tasks">
           <Stat label="KYC to review" value={String(tasks.kycSubmitted)} />
         </Link>
       </div>

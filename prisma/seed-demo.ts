@@ -3,6 +3,7 @@ import { db } from "../src/server/db";
 import { createChallengeType, publishChallengeType } from "../src/server/challenge-types";
 import { createOrder } from "../src/server/orders";
 import { createAffiliate } from "../src/server/affiliates";
+import { generateAffiliateCode, recordIntroducedPerson } from "../src/server/affiliate-referrals";
 import { createCompetition, setCompetitionStatus } from "../src/server/competitions";
 import { createCampaign } from "../src/server/offers";
 import { createThread } from "../src/server/support";
@@ -97,7 +98,11 @@ async function main() {
     db.account.update({ where: { id }, data: { equity: d(equity), balance: d(equity), dayStartEquity: d(equity), peakEquity: d(peak), tradingDays: days } });
 
   // Affiliate first, so a later order can be attributed to it.
-  await createAffiliate({ name: "Demo Partner", email: `partner@${DOMAIN}`, code: "DEMO10", commissionPct: "10", note: "Demo affiliate", adminId, ipAddress: IP });
+  const partner = await createAffiliate({ name: "Demo Partner", email: `partner@${DOMAIN}`, commissionPct: "10", note: "Demo affiliate", adminId, ipAddress: IP });
+  // Codes are generated, not typed: this is what the affiliate's "Generate" button does.
+  const partnerCode = (await generateAffiliateCode({ affiliateId: partner.id, ipAddress: IP })).code;
+  // Someone the partner has recorded but who has not signed up yet.
+  await recordIntroducedPerson({ affiliateId: partner.id, name: "Ivy Prospect", email: `ivy@${DOMAIN}`, ipAddress: IP });
 
   const alex = await buy("001", "Alex Demo", "alex", "CY", "50K Challenge");
   await setEquity(alex.account.id, alex.size, 52000, 52400, 4); // evaluation, healthy, +4%
@@ -108,7 +113,8 @@ async function main() {
 
   const chris = await buy("003", "Chris Demo", "chris", "DE", "100K Challenge");
   await setEquity(chris.account.id, chris.size, 110500, 110500, 6); // hit the target
-  await db.account.update({ where: { id: chris.account.id }, data: { status: "passed", phase: "pass_review" } });
+  // Exactly what the engine does when the target is hit: the phase moves to pass review and the status stays active.
+  await db.account.update({ where: { id: chris.account.id }, data: { phase: "pass_review" } });
 
   const dana = await buy("004", "Dana Demo", "dana", "CY", "50K Challenge");
   await setEquity(dana.account.id, dana.size, 53500, 53500, 12);
@@ -129,7 +135,7 @@ async function main() {
   // Two people paying with the same card: the multiple-account detector links them.
   const gus = await buy("007", "Gus Demo", "gus", "IE", "25K Challenge", { card: "demo-card-fingerprint-1" });
   await setEquity(gus.account.id, gus.size, 25100, 25100, 1);
-  const hana = await buy("008", "Hana Demo", "hana", "IE", "25K Challenge", { card: "demo-card-fingerprint-1", affiliateCode: "DEMO10" });
+  const hana = await buy("008", "Hana Demo", "hana", "IE", "25K Challenge", { card: "demo-card-fingerprint-1", affiliateCode: partnerCode });
   await setEquity(hana.account.id, hana.size, 24800, 25000, 1);
 
   // --- Staff-side context ---

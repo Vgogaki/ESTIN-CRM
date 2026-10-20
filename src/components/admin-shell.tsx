@@ -7,7 +7,7 @@ import { TeamPanel, type TeamMember } from "@/components/team-panel";
 
 const NAV = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/pending-tasks", label: "Pending tasks" },
+  { href: "/admin/tasks", label: "Tasks" },
   { href: "/admin/traders", label: "Traders" },
   { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/support", label: "Support" },
@@ -30,6 +30,7 @@ export function AdminShell({
 }: {
   admin: { id: string; name: string; roleName: string; twoFactorEnabled: boolean };
   team: TeamMember[];
+  /** Tasks nobody has picked up yet. Falls as tasks are taken for review or resolved. */
   pendingTaskCount?: number;
   children: ReactNode;
 }) {
@@ -65,7 +66,7 @@ export function AdminShell({
               >
                 <span className="flex items-center justify-between">
                   {item.label}
-                  {item.href === "/admin/pending-tasks" && pendingTaskCount > 0 && (
+                  {item.href === "/admin/tasks" && pendingTaskCount > 0 && (
                     <span className="rounded-full bg-danger-bg px-1.5 py-0.5 font-mono text-[10px] text-danger">
                       {pendingTaskCount}
                     </span>

@@ -7,7 +7,6 @@ import { errorResponse } from "@/server/http";
 const schema = z.object({
   name: z.string().max(200),
   email: z.string().email(),
-  code: z.string().max(64),
   commissionPct: z.string().max(10),
   linkedTraderEmail: z.string().max(200).nullable().optional(),
   note: z.string().max(1000).nullable().optional(),

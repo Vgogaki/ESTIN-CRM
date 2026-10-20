@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/alert";
 
 export default function NewAffiliateForm() {
   const router = useRouter();
-  const [f, setF] = useState({ name: "", email: "", code: "", commissionPct: "", linkedTraderEmail: "", note: "" });
+  const [f, setF] = useState({ name: "", email: "", commissionPct: "", linkedTraderEmail: "", note: "" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value });
@@ -37,7 +37,10 @@ export default function NewAffiliateForm() {
 
   return (
     <Card className="p-5">
-      <h2 className="mb-3 text-sm font-semibold">Add an affiliate</h2>
+      <h2 className="mb-1 text-sm font-semibold">Add an affiliate</h2>
+      <p className="mb-3 text-xs text-sub">
+        You don&apos;t set a referral code: the affiliate generates their own after signing in (an invite email goes to the Email page), and it is logged on their record here.
+      </p>
       <form onSubmit={submit} className="flex flex-col gap-3">
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="grid grid-cols-2 gap-3">
@@ -46,9 +49,6 @@ export default function NewAffiliateForm() {
           </Field>
           <Field label="Email">
             <Input type="email" value={f.email} onChange={set("email")} required />
-          </Field>
-          <Field label="Referral code" hint="What checkout sends as affiliate_code. Letters, numbers, - and _.">
-            <Input value={f.code} onChange={set("code")} required />
           </Field>
           <Field label="Commission %" hint="Of the amount the buyer pays. No default: you decide.">
             <Input value={f.commissionPct} onChange={set("commissionPct")} inputMode="decimal" required />

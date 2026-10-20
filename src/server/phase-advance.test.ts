@@ -35,9 +35,14 @@ describe("planAdvance", () => {
     }
   });
 
-  it("refuses a voided or non-active account", () => {
+  it("refuses a voided, breached or closed account", () => {
     expect(planAdvance(input({ voided: true })).ok).toBe(false);
     expect(planAdvance(input({ accountStatus: "breached" })).ok).toBe(false);
+    expect(planAdvance(input({ accountStatus: "closed" })).ok).toBe(false);
+  });
+
+  it("advances an account whose status was set to 'passed' by hand", () => {
+    expect(planAdvance(input({ accountStatus: "passed" }))).toEqual({ ok: true, target: p2 });
   });
 
   it("refuses when there is no further phase", () => {

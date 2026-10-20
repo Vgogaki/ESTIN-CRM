@@ -44,7 +44,7 @@ not production**. A real launch still needs the contractor's Foundation Setup
 7. Co-founder opens the address, enters the gate username and password, then goes to `/admin/login`.
 
 ### What the reviewer should know
-- Everything is fake data: traders are `@demo.estin.test`. Pending tasks shows ready-made cases (a pass review, a KYC check, a funded trader without KYC, a breached trader, a support thread).
+- Everything is fake data: traders are `@demo.estin.test`. Tasks shows ready-made cases (a pass review, a KYC check, a funded trader without KYC, a breached trader, a support thread).
 - Emails are not sent; read them at Back office > Email.
 - Back office > **Test tools** (granting accounts) exists for demos and must not exist in production.
 - Things that need a vendor or decision are not wired up and are listed in `deferred-items.md` (trading platform, payments, payout rails, email provider...). The review shows the system as built, not a launched product.

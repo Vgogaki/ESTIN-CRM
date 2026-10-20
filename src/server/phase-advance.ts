@@ -25,7 +25,12 @@ export function planAdvance(input: {
   kycTiming: KycTiming;
 }): AdvancePlan {
   if (input.voided) return { ok: false, reason: "This account is voided." };
-  if (input.accountStatus !== "active") return { ok: false, reason: "Only an active account can be advanced." };
+  // An account waiting in pass review is normally "active", but staff can also
+  // mark it "passed" by hand (the status list offers it), and an account in that
+  // state must not be stuck. Breached and closed accounts are never advanced.
+  if (input.accountStatus !== "active" && input.accountStatus !== "passed") {
+    return { ok: false, reason: "Only an active or passed account can be advanced." };
+  }
   if (input.accountPhase !== "pass_review") {
     return { ok: false, reason: "Only an account in pass review can be advanced." };
   }

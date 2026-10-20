@@ -12,7 +12,7 @@ You're looking at the back office, trader portal and affiliate portal for a Cypr
 The **Team** panel at the bottom of the left-hand menu shows who else is around ("Active now", "Active 12 min ago"). "Active" means they last did something, not that they are signed in; it refreshes about once a minute.
 
 ## The tour (Back office, left-hand menu)
-1. **Pending tasks.** The system's to-do list, built automatically: a pass review (Chris), a KYC check (Elias), a funded trader with no verified KYC (Fiona), a breached trader awaiting an offer (Bianca), a support message (Alex).
+1. **Tasks.** The system's to-do list, built automatically, with Pending / Under review / Completed filters (the number beside it is what nobody has picked up yet). Click **Start review** to take one; it completes by itself once the situation is resolved. It includes: a pass review (Chris), a KYC check (Elias), a funded trader with no verified KYC (Fiona), a breached trader awaiting an offer (Bianca), a support message (Alex).
 2. **Traders**, then open a few:
    - **Chris:** passed the profit target. Advance him to the next phase and note the choice about resetting equity.
    - **Dana:** funded, KYC verified, with a €2,800 payout waiting. Approve or decline it in **Withdrawals**. The server refuses an approval if KYC isn't verified, or if you reviewed that trader's KYC yourself.

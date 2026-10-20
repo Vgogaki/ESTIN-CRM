@@ -363,6 +363,9 @@ export async function advanceAccount(input: {
       data: {
         currentPhaseId: target.id,
         phase: target.isFunded ? "funded" : "evaluation",
+        // Back to "active" whatever it was (e.g. a hand-set "passed"): payouts and the
+        // rules engine only treat an active account as live.
+        status: "active",
         phaseStartedAt: new Date(),
         ...(input.resetEquity
           ? { equity: size, balance: size, dayStartEquity: size, peakEquity: size, tradingDays: 0 }

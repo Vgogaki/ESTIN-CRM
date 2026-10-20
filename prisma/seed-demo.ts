@@ -113,7 +113,8 @@ async function main() {
 
   const chris = await buy("003", "Chris Demo", "chris", "DE", "100K Challenge");
   await setEquity(chris.account.id, chris.size, 110500, 110500, 6); // hit the target
-  await db.account.update({ where: { id: chris.account.id }, data: { status: "passed", phase: "pass_review" } });
+  // Exactly what the engine does when the target is hit: the phase moves to pass review and the status stays active.
+  await db.account.update({ where: { id: chris.account.id }, data: { phase: "pass_review" } });
 
   const dana = await buy("004", "Dana Demo", "dana", "CY", "50K Challenge");
   await setEquity(dana.account.id, dana.size, 53500, 53500, 12);

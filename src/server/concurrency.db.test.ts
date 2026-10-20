@@ -253,6 +253,19 @@ describe("moving an account to its next phase", () => {
   });
 });
 
+describe("an account whose status was set to 'passed' by hand", () => {
+  it("can still be advanced, and comes out active so it can request payouts", async () => {
+    const { account, challenge } = await makeAccount({ phase: "pass_review" });
+    await db.account.update({ where: { id: account.id }, data: { status: "passed" } });
+    const admin = await makeAdmin();
+
+    await advanceAccount({ accountId: account.id, adminId: admin.id, ipAddress: IP, resetEquity: true });
+
+    const final = await db.account.findUniqueOrThrow({ where: { id: account.id } });
+    expect(final).toMatchObject({ phase: "funded", status: "active", currentPhaseId: challenge.phases[1].id });
+  });
+});
+
 describe("the time-limit sweep", () => {
   const longAgo = () => new Date(Date.now() - 40 * 24 * 3600 * 1000);
 

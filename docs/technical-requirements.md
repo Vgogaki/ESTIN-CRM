@@ -170,6 +170,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Identity and KYC | KycDocument, AccountLink, DeviceSighting, RiskFlag |
 | Access and security | AdminUser, AdminRole, AdminSession, AdminRecoveryCode, TraderSession, AffiliateSession, AuthToken |
 | Audit | AuditLog (append-only) |
+| Operations | StaffTask (work waiting on staff, with status: pending, in review, completed) |
 | Compliance | CountryRule, CountryReview, JurisdictionInput |
 | Engagement | Notification, SupportThread, SupportMessage, SupportAttachment, TrainingArticle |
 | Email | EmailTemplate, EmailOutbox |

@@ -150,6 +150,16 @@ These are the ones most worth looking at first.
 - Self-referral detection is a heuristic (own profile, same email, same card). It won't catch an affiliate buying for a friend with a different card, and it needs the affiliate to be linked to a trader profile for the profile and card checks.
 - No email notification to the affiliate when a commission is approved, paid or voided — they only see the current state next time they sign in.
 
+## B9b. Tasks (3.7)
+
+- **Built 21 Oct 2026** (`/admin/tasks`, table `StaffTask`): Pending / Under review / Completed. The work is still found automatically; each item gets a status. "Start review" assigns it to the person who clicked (one person only; a second click at the same moment is told who has it); "Put back" returns it. The number beside Tasks is the pending count. Taking and putting back are audited; so is automatic completion.
+- **A task is completed only by the system, when the situation behind it is resolved** (KYC decided, payout decided, account advanced, support replied...). There is deliberately no "mark done" button: it would let a task show as done while its problem is still there, and the next scan would just recreate it. Say if you want a manual "dismiss with a reason" for the cases where staff decide something needs no action.
+- **The list refreshes when someone opens a back-office page** (at most every few seconds), not in the background. If nobody is signed in, tasks are not created or completed until someone is. A background job would remove this; not needed while staff are using the system.
+- A task's age is "waiting since the system first noticed it", not since the underlying event happened.
+- **Completed shows who was reviewing it, not who resolved it** (the resolving action may be by someone else, or by the trader). Completed keeps the 200 most recent on screen; older ones stay in the database.
+- No assignment to a named person other than yourself, no due dates, no notification when a task appears, and no search or filter by type yet. Anyone with a role that can act on something (edit traders, decide KYC, approve payouts, risk, support, countries) can take a task; the read-only role can look only.
+- Fixed with this work: an account in pass review whose status had been set to "passed" (by the demo data, or by hand) could not be advanced ("Only an active account can be advanced"). It can now, and advancing sets the status back to active. The task text "Awaiting verification" (which had nothing to do with KYC) was replaced with the real reason, e.g. "KYC (not started) must be verified before funding".
+
 ## B10. Device recognition (6.6)
 
 - **Not a true fingerprint.** It recognises a browser by a cookie we set. A determined person defeats it by clearing cookies, using a private window, another browser or another device. A commercial fingerprinting service (or our own collection of screen, fonts, canvas and hardware attributes) catches more, but it is a vendor choice and a heavier privacy step; deliberately not built.

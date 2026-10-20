@@ -11,6 +11,7 @@ const schema = z.object({
   country: z.string().length(2),
   password: z.string().min(10),
   marketingConsent: z.boolean().optional(),
+  referralCode: z.string().max(64).nullable().optional(),
 });
 
 export async function POST(request: Request) {

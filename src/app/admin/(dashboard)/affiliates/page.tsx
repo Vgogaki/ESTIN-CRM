@@ -38,10 +38,15 @@ export default async function AffiliatesPage() {
               <Card className="flex items-center justify-between gap-3 p-4 hover:border-acc">
                 <div>
                   <p className="text-sm font-medium">
-                    {a.name} <span className="font-mono text-xs text-sub">{a.code}</span>
+                    {a.name}{" "}
+                    {a.activeCode ? (
+                      <span className="font-mono text-xs text-sub">{a.activeCode}</span>
+                    ) : (
+                      <span className="text-xs text-sub">no code generated yet</span>
+                    )}
                   </p>
                   <p className="text-xs text-sub">
-                    {a.commissionPct.toString()}% · {a.salesCount} referred sale(s)
+                    {a.commissionPct.toString()}% · {a.introducedCount} introduced · {a.salesCount} referred sale(s)
                     {Object.entries(a.totals).map(([cur, t]) => ` · ${cur}: ${t.pending} pending, ${t.approved} approved, ${t.paid} paid`)}
                   </p>
                 </div>

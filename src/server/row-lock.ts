@@ -25,6 +25,12 @@ export async function lockPerson(tx: Tx, personId: string): Promise<void> {
   if (rows.length === 0) throw new ValidationError("Person not found.", 404);
 }
 
+/** Serialises "generate my code" and "deactivate code" for one affiliate. Independent of person/account, so it cannot join a lock cycle with them. */
+export async function lockAffiliate(tx: Tx, affiliateId: string): Promise<void> {
+  const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Affiliate" WHERE "id" = ${affiliateId} FOR UPDATE`;
+  if (rows.length === 0) throw new ValidationError("Affiliate not found.", 404);
+}
+
 export async function lockAccount(tx: Tx, accountId: string): Promise<void> {
   const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Account" WHERE "id" = ${accountId} FOR UPDATE`;
   if (rows.length === 0) throw new ValidationError("Account not found.", 404);

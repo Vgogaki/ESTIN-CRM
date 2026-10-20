@@ -152,7 +152,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Offers and discount campaigns | 🟢 | Cap enforced at issue time; breached-trader send delay |
 | Competitions | 🟡 | Qualification, ranking, prize ladder; entry data simulated |
 | User 360 profile | 🟡 | One page per person combining all modules |
-| Affiliates and affiliate portal | 🟡 | Own login, commission ledger, self-referral flagging; payouts manual |
+| Affiliates and affiliate portal | 🟡 | Own login, generated (never typed) referral codes with a back-office register, introduced-trader dashboard, commission ledger, self-referral flagging; payouts manual |
 | Training content | 🟡 | Staff-written articles plus rules generated from live challenge settings |
 | Team presence; admin two-factor | 🟢 | Added 9–10 October 2026 |
 
@@ -173,7 +173,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Compliance | CountryRule, CountryReview, JurisdictionInput |
 | Engagement | Notification, SupportThread, SupportMessage, SupportAttachment, TrainingArticle |
 | Email | EmailTemplate, EmailOutbox |
-| Growth | OfferCampaign, IssuedOffer, Competition, CompetitionEntry, Affiliate |
+| Growth | OfferCampaign, IssuedOffer, Competition, CompetitionEntry, Affiliate, AffiliateCode, AffiliateReferral |
 
 Principles applied throughout:
 - **Money is stored as decimal**, never floating point; **all timestamps are UTC**.
@@ -192,6 +192,7 @@ Enforced **on the server**; screens only mirror them.
 - A blocked country is refused at registration, purchase and payout request; "review" lets it through and opens a review task.
 - Breach evaluation uses **equity**, not balance. Trailing drawdown references the end-of-day high-water mark. Minimum trading days default to 3 (configurable per challenge type). Rollover is midnight UTC. A trading day is any closed trade.
 - A replayed order never creates a second account or payment (idempotent on `order_ref`).
+- Referral codes are system-generated and recorded; a code not in the register earns nothing. A trader has one introducer (the first), and commission is paid only on orders carrying the introducing affiliate's own code.
 - An offer's usage cap is enforced when issued, not only when redeemed.
 - Funded accounts can only be reached through pass review and an explicit, audited advance.
 - **Competing actions are serialised (13 Oct 2026).** Requesting a payout, deciding a payout, advancing an account, manually overriding an account, voiding an account and the time-limit sweep each run in a database transaction that first locks the account (and, where KYC matters, the trader), then re-reads and re-checks before writing. Two actions arriving at the same moment are handled one after the other: exactly one takes effect, the other is refused with a clear message (HTTP 409) or skipped, and there is one audit entry and one notification. The change and its audit entry commit together. The database also refuses a second pending payout for the same account outright (partial unique index). Proven by `npm run test:db` (`src/server/concurrency.db.test.ts`).

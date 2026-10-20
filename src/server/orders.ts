@@ -7,6 +7,7 @@ import { tryRedeemOffer } from "@/server/offers";
 import { enforceCountry, openReview } from "@/server/countries";
 import { hashFingerprint, scanPerson } from "@/server/account-links";
 import { recordCommissionForOrder } from "@/server/affiliates";
+import { attributeNewPerson } from "@/server/affiliate-referrals";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -75,6 +76,9 @@ export async function createOrder(input: CreateOrderInput) {
       after: { email, fullName: input.fullName },
       ipAddress: input.ipAddress,
     });
+    // A brand-new person: if an affiliate recorded this email beforehand (or the
+    // order carries a valid code) they are linked to that affiliate. Never throws.
+    await attributeNewPerson({ person, referralCode: input.affiliateCode, source: "order_code", ipAddress: input.ipAddress });
   } else if (normalizeName(person.fullName) !== normalizeName(input.fullName)) {
     identityMismatch = true;
     await db.person.update({ where: { id: person.id }, data: { identityMismatch: true } });

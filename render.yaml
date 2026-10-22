@@ -65,6 +65,15 @@ services:
       - key: PAYMENT_DRIVER
         value: demo
 
+      # Prices for the trader terminal. "simulated" = invented prices that wander, clearly labelled
+      # as such on screen: for this review copy ONLY, never a live system. Every price is stored
+      # for ever (append-only), so the poll is slowed to one per instrument every 5 seconds.
+      # Switch off by removing both lines (the terminal then says prices are not switched on).
+      - key: PRICE_DRIVER
+        value: simulated
+      - key: PRICE_POLL_MS
+        value: "5000"
+
       # Uploaded files (KYC documents, support attachments) are kept encrypted but
       # on temporary storage here: they vanish when the service restarts. Fine for
       # a review with demo data; production needs real object storage.

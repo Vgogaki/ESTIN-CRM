@@ -6,6 +6,7 @@ import { type ReactNode } from "react";
 
 const NAV = [
   { href: "/portal", label: "Dashboard" },
+  { href: "/portal/terminal", label: "Terminal" },
   { href: "/portal/buy", label: "Buy a challenge" },
   { href: "/portal/learn", label: "Learn" },
   { href: "/portal/support", label: "Support" },
@@ -24,6 +25,8 @@ export function PortalShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  // The terminal needs room for a chart beside the order ticket; every other page keeps the narrow column.
+  const width = pathname.startsWith("/portal/terminal") ? "max-w-7xl" : "max-w-4xl";
 
   async function signOut() {
     await fetch("/api/portal/auth/logout", { method: "POST" });
@@ -34,7 +37,7 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-bd bg-surface">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
+        <div className={`mx-auto flex ${width} flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4`}>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="font-display text-sm font-semibold tracking-[0.14em]">ESTIN</div>
             <nav className="flex flex-wrap gap-1">
@@ -69,7 +72,7 @@ export function PortalShell({
         </div>
       </header>
       <main className="flex-1">
-        <div className="mx-auto max-w-4xl px-6 py-8">{children}</div>
+        <div className={`mx-auto ${width} px-6 py-8`}>{children}</div>
       </main>
     </div>
   );

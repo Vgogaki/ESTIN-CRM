@@ -15,7 +15,9 @@ export function errorResponse(err: unknown) {
     return NextResponse.json({ error: err.message }, { status: 403 });
   }
   if (err instanceof ValidationError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
+    // A refused trade carries a stable `code` the screen can act on (e.g. "market_closed").
+    const code = (err as { code?: unknown }).code;
+    return NextResponse.json({ error: err.message, ...(typeof code === "string" ? { code } : {}) }, { status: err.status });
   }
   if (err instanceof AuthError) {
     return NextResponse.json(

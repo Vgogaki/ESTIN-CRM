@@ -123,6 +123,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Module | Status | Notes |
 |---|---|---|
 | Dashboard, plans, rule meters, KYC upload | 🟢 | |
+| Trading terminal (portal) | 🟡 | Watchlist, chart from stored prices, order ticket (market orders with stop-loss/take-profit), open positions, history, live equity and rule meters. Simulated prices only until a feed is licensed; see deferred-items B9d |
 | Notifications centre | 🟡 | In-app, plus email copy |
 | Transactional email | 🟡 | Built and tested; no provider connected (nothing delivered) |
 | Support and messaging | 🟡 | Threads, statuses, encrypted attachments, in-app and email replies |

@@ -1,10 +1,12 @@
 import { priceProviderFromEnv } from "./providers";
 import { runPriceCycle } from "./price-service";
 import { processStops } from "./trading";
+import { syncTerminalAccounts } from "./account-link";
 
 /**
- * The background loop: every few seconds, fetch prices, check and store them, then
- * close any position whose stop-loss or take-profit the new price has reached.
+ * The background loop: every few seconds, fetch prices, check and store them, close
+ * any position whose stop-loss or take-profit the new price has reached, then bring
+ * every trading account's equity up to date and apply the challenge rules to it.
  *
  * Off unless PRICE_DRIVER is set (tradermade or simulated), so nothing runs, and
  * nothing is stored, on a copy that hasn't asked for prices. Started once per server
@@ -41,6 +43,7 @@ export function startPriceService(): void {
     try {
       await runPriceCycle(provider);
       await processStops();
+      await syncTerminalAccounts(); // equity, the daily reset, and the challenge rules for every trading account
       if (consecutiveFailures > 0) console.log(`[price-service] recovered after ${consecutiveFailures} failed poll(s)`);
       consecutiveFailures = 0;
     } catch (err) {

@@ -195,6 +195,7 @@ Enforced **on the server**; screens only mirror them.
 - A blocked country is refused at registration, purchase and payout request; "review" lets it through and opens a review task.
 - Breach evaluation uses **equity**, not balance. Trailing drawdown references the end-of-day high-water mark. Minimum trading days default to 3 (configurable per challenge type). Rollover is midnight UTC. A trading day is any closed trade.
 - A replayed order never creates a second account or payment (idempotent on `order_ref`).
+- For an account that trades in the simulated terminal, equity is worked out from its trades and live prices; a breached loss limit closes every position and the account, reaching the target closes every position and moves it to pass review, the day resets at midnight UTC with the trailing floor rising only at end of day, and nothing is breached on stale prices. Funded accounts are checked against their loss limits too. (Engine foundation and rules link built; no screen yet.)
 - A challenge bought in the portal is priced on the server, uses the same order path as the website, and can't be bought twice by a double click. Purchases are off unless a payment driver is configured (PAYMENT_DRIVER); the only driver today is a labelled simulation.
 - Referral codes are system-generated and recorded; a code not in the register earns nothing. A trader has one introducer (the first), and commission is paid only on orders carrying the introducing affiliate's own code.
 - An offer's usage cap is enforced when issued, not only when redeemed.

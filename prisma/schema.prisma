@@ -360,6 +360,12 @@ model Account {
   peakEquity     Decimal @db.Decimal(14, 2)
   tradingDays    Int     @default(0)
 
+  // Terminal accounts only (src/server/trading/account-link.ts). The UTC day the
+  // daily reset (day-start equity, end-of-day high-water mark) last ran, and the
+  // UTC day of the last trade closed (a trading day is any day with a closed trade).
+  lastRolloverOn   DateTime? @db.Date
+  lastTradingDayOn DateTime? @db.Date
+
   startedAt DateTime @default(now())
   // When the account entered currentPhase — the clock a phase's timeLimitDays
   // (module 3.5) counts from. Equal to startedAt at creation; would need

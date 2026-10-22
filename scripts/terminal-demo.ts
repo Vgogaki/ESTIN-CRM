@@ -4,6 +4,7 @@ import { db } from "../src/server/db";
 import { SimulatedProvider } from "../src/server/trading/providers";
 import { runPriceCycle, seedInstruments, getFreshPrices } from "../src/server/trading/price-service";
 import { closePosition, getAccountSnapshot, placeMarketOrder, processStops } from "../src/server/trading/trading";
+import { syncTerminalAccounts } from "../src/server/trading/account-link";
 
 /**
  * Watch the simulated trading engine work, from the command line (no screen yet):
@@ -106,6 +107,31 @@ async function main() {
   const close = await db.priceTick.findUniqueOrThrow({ where: { id: row.closeTickId! } });
   line(`   opened on price #${open.id.slice(-6)}: ask ${open.ask} at ${open.receivedAt.toISOString()}`);
   line(`   closed on price #${close.id.slice(-6)}: bid ${close.bid} at ${close.receivedAt.toISOString()}`);
+
+  heading("8. The rules: equity is kept on the account, and a breach closes everything");
+  // The challenge needs rule settings on a phase for the rules to run; give this demo challenge a 5% daily and 10% total loss limit.
+  const phase = await db.challengePhase.create({
+    data: { challengeTypeId: ct.id, order: 1, label: "Evaluation", isFunded: false, profitTargetPct: 8, dailyLossPct: 5, maxLossPct: 10, drawdownType: "trailing", minTradingDays: 0 },
+  });
+  await db.account.update({ where: { id: account.id }, data: { currentPhaseId: phase.id } });
+  provider.force("EURUSD", 1.1790);
+  await runPriceCycle(provider, tick(8));
+  await runPriceCycle(provider, tick(2));
+  const big = await placeMarketOrder({ ...ids, symbol: "EURUSD", side: "buy", lots: 50, now: clock });
+  let acc = await db.account.findUniqueOrThrow({ where: { id: account.id } });
+  line(`   opened 50 lots EURUSD; account equity now ${money(acc.equity)} (written to the account at once)`);
+  for (const mid of [1.1785, 1.1770, 1.1745]) {
+    provider.force("EURUSD", mid);
+    await runPriceCycle(provider, tick(8));
+    await runPriceCycle(provider, tick(2));
+    const r = await syncTerminalAccounts(clock);
+    acc = await db.account.findUniqueOrThrow({ where: { id: account.id } });
+    line(`   EURUSD ${mid.toFixed(4)}  ->  equity ${money(acc.equity)}   account ${acc.status}${r.breached ? "  (breach applied)" : ""}`);
+    if (acc.status === "breached") break;
+  }
+  const closedBig = await db.tradePosition.findUniqueOrThrow({ where: { id: big.id } });
+  line(`   position closed by: ${closedBig.closeReason}.  Account: ${acc.status}, phase ${acc.phase}.`);
+  line(`   reason on file: ${acc.closeReason}`);
 
   const counts = await db.priceTick.groupBy({ by: ["status"], _count: { _all: true } });
   line(`\nStored prices: ${counts.map((c) => `${c._count._all} ${c.status}`).join(", ")}. None can be edited or deleted.`);

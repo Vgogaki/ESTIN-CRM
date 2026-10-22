@@ -3,10 +3,11 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { lockAccount } from "@/server/row-lock";
-import { accountSnapshot, closeOutcome, floatingPnl, prepareMarketOrder, stopTrigger, type AccountSnapshot, type OpenPosition, type Quote, type Side } from "./engine";
+import { floatingPnl, prepareMarketOrder, stopTrigger, type Quote, type Side } from "./engine";
 import { converterTo, RateUnavailable } from "./fx";
-import { getFreshPrices, loadInstruments, type FreshPrices } from "./price-service";
-import type { InstrumentSpec } from "./instruments";
+import { getFreshPrices } from "./price-service";
+import { auditActor, closeInTx, loadMarket, snapshotFor, toOpenPosition, TradeRejected, type Actor } from "./core";
+import { syncAfterTrade } from "./account-link";
 
 /**
  * Trading on a simulated account: opening and closing positions against the current
@@ -16,25 +17,16 @@ import type { InstrumentSpec } from "./instruments";
  * same lock the payout and account-state code use), so two orders, an order and a
  * stop being hit, or a close and a close can never interleave on one account. The
  * balance, the position and the audit entry are written together or not at all.
+ * After each order or close the account's equity is brought up to date and the
+ * challenge rules are applied to it (account-link.ts).
  *
- * Deliberately NOT done here (the next step): writing live equity back to the
- * account, running the challenge rules on every price change, closing everything on
- * a breach, daily rollover and trading-day counting. Nothing here changes
- * Account.equity; closing a position changes Account.balance by the realised profit.
- * Until that step exists, nothing in the portal or back office calls these functions.
+ * Nothing in the portal or back office calls these functions yet (no screen, no API
+ * route): they are exercised by tests and by scripts/terminal-demo.ts.
  */
 
+export { TradeRejected, type Actor };
+
 export const MAX_OPEN_POSITIONS = 20;
-
-/** A refused order, with a stable code the screen can act on. */
-export class TradeRejected extends ValidationError {
-  constructor(public code: string, message: string, status = 422) {
-    super(message, status);
-    this.name = "TradeRejected";
-  }
-}
-
-export type Actor = { type: "trader"; personId: string } | { type: "admin"; adminId: string } | { type: "system" };
 
 const asDecimal = (v: string | number | Prisma.Decimal | null | undefined, field: string): Prisma.Decimal | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -46,37 +38,6 @@ const asDecimal = (v: string | number | Prisma.Decimal | null | undefined, field
     throw new TradeRejected("bad_number", `${field} is not a valid number.`, 400);
   }
 };
-
-function auditActor(actor: Actor) {
-  return actor.type === "trader"
-    ? ({ actorType: "trader", actorId: actor.personId } as const)
-    : actor.type === "admin"
-      ? ({ actorType: "admin", actorId: actor.adminId } as const)
-      : ({ actorType: "system", actorId: null } as const);
-}
-
-type Tx = Prisma.TransactionClient;
-
-function toOpenPosition(p: { id: string; symbol: string; side: Side; lots: Prisma.Decimal; openPrice: Prisma.Decimal; stopLoss: Prisma.Decimal | null; takeProfit: Prisma.Decimal | null; marginUsed: Prisma.Decimal }): OpenPosition {
-  return { id: p.id, symbol: p.symbol, side: p.side, lots: p.lots, openPrice: p.openPrice, stopLoss: p.stopLoss, takeProfit: p.takeProfit, marginUsed: p.marginUsed };
-}
-
-/** The live value of an account's open positions. Throws a clear 503 if a price needed for it isn't current. */
-function snapshotFor(balance: Prisma.Decimal, positions: OpenPosition[], specs: Record<string, InstrumentSpec>, prices: FreshPrices, currency: string): AccountSnapshot {
-  try {
-    return accountSnapshot({ balance, positions, specs, quotes: prices.quotes, convert: converterTo(currency, prices.mids) });
-  } catch (err) {
-    if (err instanceof RateUnavailable || (err instanceof Error && /No price for open position/.test(err.message))) {
-      throw new TradeRejected("prices_unavailable", "Prices aren't available right now for part of this account, so it can't be valued. Please try again in a moment.", 503);
-    }
-    throw err;
-  }
-}
-
-async function loadMarket(client: Tx | typeof db, now: Date) {
-  const [specList, prices] = await Promise.all([loadInstruments(client as typeof db), getFreshPrices(now, undefined, client as typeof db)]);
-  return { specs: Object.fromEntries(specList.map((s) => [s.symbol, s])) as Record<string, InstrumentSpec>, prices };
-}
 
 export async function placeMarketOrder(input: {
   accountId: string;
@@ -95,7 +56,7 @@ export async function placeMarketOrder(input: {
   const stopLoss = asDecimal(input.stopLoss, "Stop-loss");
   const takeProfit = asDecimal(input.takeProfit, "Take-profit");
 
-  return db.$transaction(async (tx) => {
+  const position = await db.$transaction(async (tx) => {
     await lockAccount(tx, input.accountId);
     const account = await tx.account.findUniqueOrThrow({ where: { id: input.accountId }, include: { challengeType: true, currentPhase: true } });
 
@@ -143,7 +104,7 @@ export async function placeMarketOrder(input: {
     }
     if (!prepared.ok) throw new TradeRejected(prepared.code, prepared.message);
 
-    const position = await tx.tradePosition.create({
+    const created = await tx.tradePosition.create({
       data: {
         accountId: account.id,
         symbol: spec.symbol,
@@ -162,59 +123,22 @@ export async function placeMarketOrder(input: {
         ...auditActor({ type: "trader", personId: input.personId }),
         action: "trade.opened",
         entityType: "TradePosition",
-        entityId: position.id,
+        entityId: created.id,
         after: { accountId: account.id, symbol: spec.symbol, side: input.side, lots: lots.toString(), price: prepared.fillPrice.toString(), tickId: quote.tickId, stopLoss: stopLoss?.toString() ?? null, takeProfit: takeProfit?.toString() ?? null, margin: prepared.marginRequired.toString() },
         ipAddress: input.ipAddress,
       },
       tx,
     );
-    return position;
+    return created;
   });
-}
 
-/** Closes one position inside a transaction that already holds the account lock. */
-async function closeInTx(tx: Tx, position: { id: string; accountId: string }, reason: TradeCloseReason, actor: Actor, now: Date, market: { specs: Record<string, InstrumentSpec>; prices: FreshPrices }, ipAddress: string | null) {
-  const row = await tx.tradePosition.findUniqueOrThrow({ where: { id: position.id }, include: { account: { include: { challengeType: true } } } });
-  if (row.status !== "open") throw new TradeRejected("already_closed", "This position is already closed.", 409);
-  const spec = market.specs[row.symbol];
-  const quote = market.prices.quotes[row.symbol];
-  if (!spec || !quote) throw new TradeRejected("no_price", `There's no current price for ${row.symbol}, so it can't be closed right now.`, 503);
-
-  let outcome;
-  try {
-    outcome = closeOutcome(toOpenPosition(row), spec, quote, converterTo(row.account.challengeType.currency, market.prices.mids));
-  } catch (err) {
-    if (err instanceof RateUnavailable) throw new TradeRejected("prices_unavailable", "Prices aren't available right now, so the profit can't be worked out. Please try again in a moment.", 503);
-    throw err;
-  }
-
-  // Only a position that is STILL open can be closed, whoever else is trying to at the same moment.
-  const changed = await tx.tradePosition.updateMany({
-    where: { id: row.id, status: "open" },
-    data: { status: "closed", closePrice: outcome.closePrice, closedAt: now, closeTickId: quote.tickId, closeReason: reason, grossPnl: outcome.grossPnl, commission: outcome.commission, closeFxRate: outcome.fxRate },
-  });
-  if (changed.count === 0) throw new TradeRejected("already_closed", "This position is already closed.", 409);
-
-  const balanceBefore = row.account.balance;
-  const updated = await tx.account.update({ where: { id: row.accountId }, data: { balance: { increment: outcome.netPnl } } });
-  await writeAuditLog(
-    {
-      ...auditActor(actor),
-      action: "trade.closed",
-      entityType: "TradePosition",
-      entityId: row.id,
-      before: { balance: balanceBefore.toString() },
-      after: { balance: updated.balance.toString(), reason, price: outcome.closePrice.toString(), tickId: quote.tickId, grossPnl: outcome.grossPnl.toString(), commission: outcome.commission.toString(), netPnl: outcome.netPnl.toString() },
-      ipAddress,
-    },
-    tx,
-  );
-  return { positionId: row.id, accountId: row.accountId, reason, ...outcome };
+  await syncAfterTrade(input.accountId, now);
+  return position;
 }
 
 export async function closePosition(input: { accountId: string; positionId: string; reason?: TradeCloseReason; actor: Actor; ipAddress?: string | null; now?: Date }) {
   const now = input.now ?? new Date();
-  return db.$transaction(async (tx) => {
+  const closed = await db.$transaction(async (tx) => {
     await lockAccount(tx, input.accountId);
     const p = await tx.tradePosition.findUnique({ where: { id: input.positionId }, select: { id: true, accountId: true } });
     if (!p || p.accountId !== input.accountId) throw new ValidationError("Position not found.", 404);
@@ -225,20 +149,24 @@ export async function closePosition(input: { accountId: string; positionId: stri
     const market = await loadMarket(tx, now);
     return closeInTx(tx, p, input.reason ?? "manual", input.actor, now, market, input.ipAddress ?? null);
   });
+  await syncAfterTrade(input.accountId, now);
+  return closed;
 }
 
-/** Closes every open position on an account (for a breach or a pass, in the next step). One transaction: all or none. */
+/** Closes every open position on an account. One transaction: all or none. */
 export async function closeAllPositions(input: { accountId: string; reason: TradeCloseReason; actor: Actor; ipAddress?: string | null; now?: Date }) {
   const now = input.now ?? new Date();
-  return db.$transaction(async (tx) => {
+  const closed = await db.$transaction(async (tx) => {
     await lockAccount(tx, input.accountId);
     const open = await tx.tradePosition.findMany({ where: { accountId: input.accountId, status: "open" }, select: { id: true, accountId: true } });
     if (open.length === 0) return [];
     const market = await loadMarket(tx, now);
-    const closed = [];
-    for (const p of open) closed.push(await closeInTx(tx, p, input.reason, input.actor, now, market, input.ipAddress ?? null));
-    return closed;
+    const out = [];
+    for (const p of open) out.push(await closeInTx(tx, p, input.reason, input.actor, now, market, input.ipAddress ?? null));
+    return out;
   });
+  if (closed.length > 0) await syncAfterTrade(input.accountId, now);
+  return closed;
 }
 
 /**

@@ -15,6 +15,7 @@ import { appBaseUrl } from "@/server/email/transport";
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1h
+const PORTAL_INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days: a new buyer may not open it at once
 
 /**
  * Direct sign-up path (spec: "also allow direct sign-up for competitions
@@ -250,6 +251,48 @@ export async function requestPasswordReset(email: string) {
   });
 }
 
+/**
+ * "Set up your portal access": for a person who exists but has no way in yet,
+ * typically someone whose purchase arrived from the website (an order creates the
+ * person without a password). Sends a link to choose a password. The link goes only
+ * to the person's own email address, so completing it also confirms that address
+ * (see resetPassword). Does nothing for someone who already has a password.
+ * Never throws: a mail problem must not undo the purchase.
+ */
+export async function issuePortalInvite(personId: string): Promise<void> {
+  try {
+    const person = await db.person.findUnique({ where: { id: personId } });
+    if (!person || person.voidedAt || person.passwordHash) return;
+
+    const token = generateOpaqueToken();
+    await db.authToken.create({
+      data: {
+        actorType: "trader",
+        actorId: person.id,
+        purpose: "password_reset",
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + PORTAL_INVITE_TTL_MS),
+      },
+    });
+    await queueEmail({
+      templateKey: "portal_invite",
+      toEmail: person.email,
+      personId: person.id,
+      vars: { name: person.fullName, link: `${appBaseUrl()}/portal/reset-password?token=${token}` },
+    });
+    await writeAuditLog({
+      actorType: "system",
+      actorId: null,
+      action: "person.portal_invite_sent",
+      entityType: "Person",
+      entityId: person.id,
+      reason: "Portal access email sent to a person who has no password yet.",
+    });
+  } catch (err) {
+    console.error("[auth] could not send portal invite", err);
+  }
+}
+
 export async function resetPassword(token: string, newPassword: string) {
   if (!isPasswordAcceptable(newPassword)) {
     throw new AuthError("Password must be at least 10 characters.", 400);
@@ -267,12 +310,17 @@ export async function resetPassword(token: string, newPassword: string) {
   }
 
   const passwordHash = await hashPassword(newPassword);
-  await db.$transaction([
+  const now = new Date();
+  const [, verified] = await db.$transaction([
     db.person.update({
       where: { id: record.actorId },
       data: { passwordHash, ...resetLockout },
     }),
-    db.authToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+    // The link was emailed to this person's own address, so using it proves they own that
+    // mailbox: confirm the email if it wasn't already. (Without this, someone created by an
+    // order could set a password but never get past "verify your email".)
+    db.person.updateMany({ where: { id: record.actorId, emailVerifiedAt: null }, data: { emailVerifiedAt: now } }),
+    db.authToken.update({ where: { id: record.id }, data: { usedAt: now } }),
   ]);
 
   await writeAuditLog({
@@ -282,6 +330,16 @@ export async function resetPassword(token: string, newPassword: string) {
     entityType: "Person",
     entityId: record.actorId,
   });
+  if (verified.count === 1) {
+    await writeAuditLog({
+      actorType: "trader",
+      actorId: record.actorId,
+      action: "person.email_verified",
+      entityType: "Person",
+      entityId: record.actorId,
+      reason: "Confirmed by completing the emailed password link.",
+    });
+  }
 }
 
 export async function enrollTwoFactor(personId: string) {

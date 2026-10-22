@@ -200,9 +200,14 @@ export default function TraderDashboard({ trader, accounts }: Props) {
         </div>
       </Card>
       <div className="mt-6 flex flex-col gap-3">
-        <h2 className="font-display text-sm font-semibold">Your challenges</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-sm font-semibold">Your challenges</h2>
+          <Link href="/portal/buy">
+            <Button>Buy a challenge</Button>
+          </Link>
+        </div>
         {accounts.length === 0 ? (
-          <p className="text-sm text-sub">No challenge accounts yet.</p>
+          <p className="text-sm text-sub">No challenge accounts yet. Choose one to get started.</p>
         ) : (
           accounts.map((a) => <AccountCard key={a.id} account={a} />)
         )}

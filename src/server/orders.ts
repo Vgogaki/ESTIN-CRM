@@ -8,6 +8,7 @@ import { enforceCountry, openReview } from "@/server/countries";
 import { hashFingerprint, scanPerson } from "@/server/account-links";
 import { recordCommissionForOrder } from "@/server/affiliates";
 import { attributeNewPerson } from "@/server/affiliate-referrals";
+import { issuePortalInvite } from "@/server/auth/trader";
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
@@ -26,6 +27,8 @@ export type CreateOrderInput = {
   offerCode?: string | null;
   /** The payment provider's card/instrument fingerprint token (never card data) — hashed before storage; feeds 6.1 linking. */
   paymentInstrumentRef?: string | null;
+  /** Email a new buyer a link to set a password. On by default; only the demo-data loader switches it off. */
+  portalInvite?: boolean;
   ipAddress: string;
 };
 
@@ -79,6 +82,8 @@ export async function createOrder(input: CreateOrderInput) {
     // A brand-new person: if an affiliate recorded this email beforehand (or the
     // order carries a valid code) they are linked to that affiliate. Never throws.
     await attributeNewPerson({ person, referralCode: input.affiliateCode, source: "order_code", ipAddress: input.ipAddress });
+    // The buyer has no password yet: email them a link to set one (portal access). Never throws.
+    if (input.portalInvite !== false) await issuePortalInvite(person.id);
   } else if (normalizeName(person.fullName) !== normalizeName(input.fullName)) {
     identityMismatch = true;
     await db.person.update({ where: { id: person.id }, data: { identityMismatch: true } });

@@ -6,6 +6,7 @@ import { type ReactNode } from "react";
 
 const NAV = [
   { href: "/portal", label: "Dashboard" },
+  { href: "/portal/buy", label: "Buy a challenge" },
   { href: "/portal/learn", label: "Learn" },
   { href: "/portal/support", label: "Support" },
   { href: "/portal/competitions", label: "Competitions" },
@@ -33,17 +34,18 @@ export function PortalShell({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-bd bg-surface">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <div className="font-display text-sm font-semibold tracking-[0.14em]">ESTIN</div>
-            <nav className="flex gap-1">
+            <nav className="flex flex-wrap gap-1">
               {NAV.map((item) => {
-                const active = pathname === item.href;
+                // Nested pages (the review and payment steps) keep their section highlighted.
+                const active = item.href === "/portal" ? pathname === "/portal" : pathname.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors ${
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors ${
                       active ? "bg-accbg text-acc" : "text-sub hover:text-ink"
                     }`}
                   >
@@ -58,7 +60,7 @@ export function PortalShell({
               })}
             </nav>
           </div>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-3 text-sm whitespace-nowrap">
             <span className="text-sub">{trader.fullName}</span>
             <button onClick={signOut} className="text-sub underline hover:text-acc">
               Sign out

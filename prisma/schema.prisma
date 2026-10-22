@@ -250,6 +250,7 @@ model ChallengeType {
   accounts        Account[]
   termsAcceptance TermsAcceptance[]
   issuedOffers    IssuedOffer[]
+  checkoutSessions CheckoutSession[]
 
   @@unique([familyId, version])
   @@index([familyId])
@@ -334,6 +335,7 @@ model Person {
   riskFlags          RiskFlag[]
   // The affiliate who introduced this person, if any (at most one: the first one wins).
   referral           AffiliateReferral?
+  checkoutSessions   CheckoutSession[]
 
   @@index([email])
 }
@@ -1014,6 +1016,48 @@ model Affiliate {
   affiliateSessions AffiliateSession[]
   codes             AffiliateCode[]
   referrals         AffiliateReferral[]
+}
+
+/// A trader buying a challenge in the portal: the pending order. The PRICE is fixed
+/// here, on the server, when checkout starts (the browser never supplies it), and the
+/// challenge type version is pinned to the exact one shown. Payment then runs through
+/// the payment driver (src/server/payments/driver.ts) and, on success, the SAME
+/// order-intake path the website uses (createOrder, idempotent on orderRef) creates
+/// the account. Rows are never deleted.
+model CheckoutSession {
+  id              String         @id @default(cuid())
+  personId        String
+  person          Person         @relation(fields: [personId], references: [id])
+  /// The exact challenge type version the trader was shown.
+  challengeTypeId String
+  challengeType   ChallengeType  @relation(fields: [challengeTypeId], references: [id])
+  /// Becomes the order_ref of the Account and Payment this checkout creates.
+  orderRef        String         @unique
+  currency        String
+  normalFee       Decimal        @db.Decimal(14, 2)
+  /// What is charged: the normal fee, or the trader's own offer price.
+  amountDue       Decimal        @db.Decimal(14, 2)
+  /// Campaign code of the offer being used, if any (its price is already in amountDue).
+  offerCode       String?
+  affiliateCode   String?
+  termsVersion    String
+  termsAcceptedAt DateTime
+  ipAddress       String
+  status          CheckoutStatus @default(pending)
+  paymentProvider String?
+  providerReference String?
+  accountId       String?        @unique
+  createdAt       DateTime       @default(now())
+  expiresAt       DateTime
+  paidAt          DateTime?
+
+  @@index([personId, status])
+}
+
+enum CheckoutStatus {
+  pending
+  paid
+  expired
 }
 
 /// One piece of work waiting on staff (KYC to review, a payout to decide, a

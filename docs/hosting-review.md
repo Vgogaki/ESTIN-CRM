@@ -46,6 +46,7 @@ not production**. A real launch still needs the contractor's Foundation Setup
 ### What the reviewer should know
 - Everything is fake data: traders are `@demo.estin.test`. Tasks shows ready-made cases (a pass review, a KYC check, a funded trader without KYC, a breached trader, a support thread).
 - Emails are not sent; read them at Back office > Email.
+- Buying a challenge in the portal uses a SIMULATED payment (`PAYMENT_DRIVER=demo`): no money moves. A live system must leave that setting unset, and purchases are then switched off until a real payment provider is connected.
 - Back office > **Test tools** (granting accounts) exists for demos and must not exist in production.
 - Things that need a vendor or decision are not wired up and are listed in `deferred-items.md` (trading platform, payments, payout rails, email provider...). The review shows the system as built, not a launched product.
 

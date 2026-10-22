@@ -58,6 +58,13 @@ services:
       - key: SEED_COFOUNDER_EMAIL
         sync: false            # Render asks for this when the Blueprint is created
 
+      # Buying a challenge in the portal. "demo" = a clearly labelled SIMULATED payment, no
+      # money moves (src/server/payments/driver.ts). This is for the review copy ONLY:
+      # a live system without a real payment provider must leave this unset, and then
+      # purchases are switched off.
+      - key: PAYMENT_DRIVER
+        value: demo
+
       # Uploaded files (KYC documents, support attachments) are kept encrypted but
       # on temporary storage here: they vanish when the service restarts. Fine for
       # a review with demo data; production needs real object storage.

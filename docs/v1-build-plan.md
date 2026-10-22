@@ -110,7 +110,7 @@ Every module below is in scope for V1. Nothing is added after this point without
 
 | # | Module | Status | Notes |
 |---|---|---|---|
-| 2.1 | ⭐ Order intake API | 🟢 | **Built** — `POST /api/v1/orders`, idempotent on `order_ref` (verified: replayed request returns the same account, concurrent double-submit handled via the DB unique constraint). Pins to the exact challenge type version shown at checkout. Detects same-email-different-name and flags `identityMismatch`. Gated on a single shared API key (`ORDERS_API_KEY`) until real per-integration key management exists (spec §5.7, not built) |
+| 2.1 | ⭐ Order intake API | 🟢 | **Updated 22 Oct 2026: traders can now also buy a challenge inside the portal (Buy a challenge), through the same order path, with a simulated payment until a provider is chosen (decision #5). A buyer arriving from the website now gets an email to set a password. See deferred-items B9c.** **Built** — `POST /api/v1/orders`, idempotent on `order_ref` (verified: replayed request returns the same account, concurrent double-submit handled via the DB unique constraint). Pins to the exact challenge type version shown at checkout. Detects same-email-different-name and flags `identityMismatch`. Gated on a single shared API key (`ORDERS_API_KEY`) until real per-integration key management exists (spec §5.7, not built) |
 | 2.2 | Payment integration | 🔴 | Provider selection, checkout, webhooks — blocked on decision #5 |
 | 2.3 | Refunds & chargebacks | 🔴 | Including account voiding on chargeback — blocked on decision #5 |
 | 2.4 | Purchase & payment history | 🟢 | **Built** — `Payment` record created per order, shown on the trader detail page |

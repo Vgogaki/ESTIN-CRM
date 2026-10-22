@@ -24,7 +24,7 @@ The **Team** panel at the bottom of the left-hand menu shows who else is around 
 6. **Offers, Affiliates, Finance, Countries (empty by design; try the CSV upload), Support, Training, Email.**
 
 ## Seeing the trader and affiliate sides
-- **Trader portal:** register at `/portal/register`. No email is really sent: read the verification link in **Back office → Email**. Then **Test tools → Grant test account** with your email, and sign in at `/portal`.
+- **Trader portal:** register at `/portal/register`. Once signed in, **Buy a challenge** shows the three products; pick one, read the rules, accept the terms and press the simulated payment button (no money moves; this copy is labelled as a test). The account appears on the dashboard. No email is really sent: read the verification link in **Back office → Email**. Then **Test tools → Grant test account** with your email, and sign in at `/portal`.
 - **Affiliate portal:** **Affiliates → Demo Partner → Resend portal invite**, read the link in **Email**, set a password, sign in at `/affiliate/login`.
 
 ## What is deliberately not here yet

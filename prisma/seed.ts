@@ -4,6 +4,7 @@ import { db } from "../src/server/db";
 import { DEFAULT_ROLES } from "../src/server/permissions";
 import { hashPassword } from "../src/server/security/password";
 import { writeAuditLog } from "../src/server/audit";
+import { seedInstruments } from "../src/server/trading/price-service";
 
 const FOUNDER_ADMIN_EMAIL = "valentina-gogaki@hotmail.com";
 
@@ -16,6 +17,10 @@ async function main() {
     });
   }
   console.log(`Seeded ${Object.keys(DEFAULT_ROLES).length} admin roles.`);
+
+  // The simulated terminal's starting instruments (creates only the missing ones; never overwrites staff edits).
+  const instruments = await seedInstruments();
+  console.log(instruments > 0 ? `Created ${instruments} trading instrument(s).` : "Trading instruments already present.");
 
   const superAdminRole = await db.adminRole.findUniqueOrThrow({
     where: { name: "super_admin" },

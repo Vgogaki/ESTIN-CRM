@@ -96,6 +96,7 @@ async function main() {
       paymentProvider: "demo",
       affiliateCode: extra.affiliateCode ?? null,
       paymentInstrumentRef: extra.card ?? null,
+      portalInvite: false, // demo people are never meant to sign in; no invite email clutter
       ipAddress: `203.0.113.${nextHost++}`,
     });
     return { account, size: t.size, personEmail: `${slug}@${DOMAIN}` };

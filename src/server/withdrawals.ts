@@ -6,6 +6,7 @@ import { ValidationError } from "@/server/errors";
 import { enforceCountry, hasOpenPayoutReview, openReview } from "@/server/countries";
 import { hasOpenHighFlag } from "@/server/risk";
 import { lockAccount, lockPerson } from "@/server/row-lock";
+import { checkBestDay, dailyNetProfits, parseConsistencyRule } from "@/server/trading/consistency";
 
 const { Decimal } = Prisma;
 const zero = new Decimal(0);
@@ -121,6 +122,28 @@ export async function requestWithdrawal(input: { personId: string; accountId: st
       const splitPct = fresh.currentPhase?.profitSplitPct;
       if (!splitPct) {
         throw new ValidationError("This challenge phase has no profit split configured.");
+      }
+
+      // The best-day consistency rule (docs/decisions.md): no single day may be more than the
+      // set share of the profit made on profitable days. It can only be checked where there are
+      // trades to look at (an account that trades in the terminal), over the trades closed since
+      // this phase began. An account with no trade data is not checked.
+      const consistency = parseConsistencyRule(fresh.currentPhase?.consistencyRule);
+      if (consistency) {
+        const trades = await tx.tradePosition.findMany({
+          where: { accountId: fresh.id, status: "closed", closedAt: { gte: fresh.phaseStartedAt } },
+          select: { closedAt: true, grossPnl: true, commission: true },
+        });
+        if (trades.length > 0) {
+          const days = dailyNetProfits(trades.map((t) => ({ closedAt: t.closedAt!, netPnl: (t.grossPnl ?? zero).minus(t.commission) })));
+          const check = checkBestDay([...days.values()], consistency);
+          if (!check.ok) {
+            throw new ValidationError(
+              `A payout isn't available yet: your best day (${check.bestDay.toFixed(2)}) is ${check.pct!.toFixed(1)}% of your profit on profitable days, and the limit is ${consistency.maxPct.toString()}%. Keep trading and try again once your profit is more evenly spread.`,
+              409,
+            );
+          }
+        }
       }
 
       const reserved = await reservedAmountFor(fresh.id, tx);

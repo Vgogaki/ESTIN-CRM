@@ -6,6 +6,7 @@ import { determineAutoTransition, evaluateAccount } from "@/server/rules";
 import { notifyTrader } from "@/server/notifications";
 import { planAdvance } from "@/server/phase-advance";
 import { lockAccount, lockPerson } from "@/server/row-lock";
+import { isTerminalAccount } from "@/server/trading/core";
 
 export async function listTraders(search?: string, statusFilter?: AccountStatus) {
   return db.person.findMany({
@@ -103,6 +104,18 @@ export async function updateAccountState(input: {
   // replaced, even when two staff members save at the same moment.
   const outcome = await db.$transaction(async (tx) => {
     await lockAccount(tx, input.accountId);
+
+    // An account that trades in the simulated terminal has its equity worked out from its
+    // trades and the live prices (src/server/trading/account-link.ts). Typing a number over
+    // that would be silently overwritten on the next price, so it is refused. Status and
+    // phase can still be changed.
+    const typesEquity = input.patch.equity !== undefined || input.patch.dayStartEquity !== undefined || input.patch.peakEquity !== undefined || input.patch.tradingDays !== undefined;
+    if (typesEquity && (await isTerminalAccount(tx, input.accountId))) {
+      throw new ValidationError(
+        "This account trades in the simulated terminal, so its equity, day-start equity, high-water mark and trading days come from its trades and can't be typed in. Status and phase can still be changed.",
+        409,
+      );
+    }
 
     const before = await tx.account.findUniqueOrThrow({
       where: { id: input.accountId },

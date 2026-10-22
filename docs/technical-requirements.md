@@ -123,6 +123,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Module | Status | Notes |
 |---|---|---|
 | Dashboard, plans, rule meters, KYC upload | 🟢 | |
+| Trading terminal (portal) | 🟡 | Watchlist, chart from stored prices, order ticket (market orders with stop-loss/take-profit, which the trader can change or remove afterwards), open positions, history, live equity and rule meters. Back office: a positions card on the trader's page and a staff force-close (needs `trading.forceClose` and a written reason, audited). Simulated prices only until a feed is licensed; see deferred-items B9d |
 | Notifications centre | 🟡 | In-app, plus email copy |
 | Transactional email | 🟡 | Built and tested; no provider connected (nothing delivered) |
 | Support and messaging | 🟡 | Threads, statuses, encrypted attachments, in-app and email replies |
@@ -171,6 +172,8 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Access and security | AdminUser, AdminRole, AdminSession, AdminRecoveryCode, TraderSession, AffiliateSession, AuthToken |
 | Audit | AuditLog (append-only) |
 | Operations | StaffTask (work waiting on staff, with status: pending, in review, completed) |
+| Trading (engine foundation) | Instrument, PriceTick (append-only), TradePosition |
+| Purchasing | CheckoutSession (a trader's pending portal purchase: server-set price, pinned challenge version, terms, payment result) |
 | Compliance | CountryRule, CountryReview, JurisdictionInput |
 | Engagement | Notification, SupportThread, SupportMessage, SupportAttachment, TrainingArticle |
 | Email | EmailTemplate, EmailOutbox |
@@ -193,6 +196,8 @@ Enforced **on the server**; screens only mirror them.
 - A blocked country is refused at registration, purchase and payout request; "review" lets it through and opens a review task.
 - Breach evaluation uses **equity**, not balance. Trailing drawdown references the end-of-day high-water mark. Minimum trading days default to 3 (configurable per challenge type). Rollover is midnight UTC. A trading day is any closed trade.
 - A replayed order never creates a second account or payment (idempotent on `order_ref`).
+- For an account that trades in the simulated terminal, equity is worked out from its trades and live prices; a breached loss limit closes every position and the account, reaching the target closes every position and moves it to pass review, the day resets at midnight UTC with the trailing floor rising only at end of day, and nothing is breached on stale prices. Funded accounts are checked against their loss limits too. (Engine foundation, rules link and the trader's terminal screen are built.)
+- A challenge bought in the portal is priced on the server, uses the same order path as the website, and can't be bought twice by a double click. Purchases are off unless a payment driver is configured (PAYMENT_DRIVER); the only driver today is a labelled simulation.
 - Referral codes are system-generated and recorded; a code not in the register earns nothing. A trader has one introducer (the first), and commission is paid only on orders carrying the introducing affiliate's own code.
 - An offer's usage cap is enforced when issued, not only when redeemed.
 - Funded accounts can only be reached through pass review and an explicit, audited advance.
@@ -294,6 +299,9 @@ Trading platform / equity feed, payment provider, payout rails, KYC identity-ver
 | `KYC_STORAGE_DIR` | Optional | Where encrypted files are written |
 | `EMAIL_DRIVER`, `SMTP_URL`, `EMAIL_FROM` | Optional | Email delivery (default: record only) |
 | `APP_BASE_URL` | Optional | Address used in email links |
+| `PAYMENT_DRIVER` | Optional | Unset = portal purchases off (the live default). `demo` = labelled simulated payment, local and review copies only |
+| `PRICE_DRIVER`, `TRADERMADE_API_KEY`, `PRICE_POLL_MS`, `PRICE_MAX_AGE_MS` | Optional | Price service for the simulated terminal. Unset = no prices, nothing runs. `tradermade` (needs the key, server-side only) or `simulated` (local/review only) |
+| `MAX_ACTIVE_ACCOUNTS` | Optional | Most challenge accounts one trader may hold at once. Unset/0 = no limit |
 | `GEOIP_DRIVER`, `GEOIP_API_URL` | Optional | IP geolocation (default: off) |
 | `REVIEW_GATE`, `REVIEW_GATE_USER`, `REVIEW_GATE_PASSWORD` | Staging only | Site-wide password gate |
 | `RUN_SEED`, `ALLOW_DEMO_SEED`, `SEED_FOUNDER_PASSWORD`, `SEED_COFOUNDER_EMAIL`, `SEED_COFOUNDER_PASSWORD` | Staging only | Create admin accounts and demo data |

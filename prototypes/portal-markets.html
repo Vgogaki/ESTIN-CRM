@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESTIN portal: Markets (prototype)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* Same palette as the real portal (src/app/globals.css). */
+  :root{--bg:#080d16;--surface:#0e1622;--raise:#141f2e;--ink:#e8eef6;--sub:#7b8ca3;--bd:#1e2b3c;--acc:#2e9bf0;--accbg:#122436;
+        --danger:#d96b66;--danger-bg:#241417;--success:#4fbe8b;--success-bg:#0f2620;--warning:#d9a441;--warning-bg:#2a2013;--warning-bd:#3a2f19}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif}
+  h1,h2,h3{font-family:"Space Grotesk","IBM Plex Sans",sans-serif;margin:0}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+  header{border-bottom:1px solid var(--bd);background:var(--surface)}
+  .bar{max-width:1120px;margin:0 auto;padding:14px 24px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 24px}
+  .logo{font:600 13px "Space Grotesk";letter-spacing:.14em}
+  nav{display:flex;flex-wrap:wrap;gap:4px}
+  nav a{padding:6px 12px;border-radius:6px;color:var(--sub);text-decoration:none;white-space:nowrap}
+  nav a.on{background:var(--accbg);color:var(--acc)}
+  .who{color:var(--sub);white-space:nowrap}
+  main{max-width:1120px;margin:0 auto;padding:28px 24px 60px}
+  .banner{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;border:1px solid var(--warning-bd);background:var(--warning-bg);color:var(--warning);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:13px}
+  .banner button{background:transparent;border:1px solid var(--warning-bd);color:var(--warning);border-radius:6px;padding:5px 10px;cursor:pointer;font:inherit}
+  .banner button.on{background:var(--warning);color:#1a1204}
+  .head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;margin-bottom:16px}
+  .head p{margin:2px 0 0;color:var(--sub)}
+  .grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--bd);border-radius:10px;padding:16px;position:relative}
+  .card h2{font-size:15px;margin-bottom:10px}
+  .tag{display:none;position:absolute;top:8px;right:10px;font:11px "IBM Plex Mono",monospace;color:var(--acc);background:var(--accbg);border:1px solid #1c3a55;border-radius:5px;padding:2px 7px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.src .tag{display:block}
+  .tag.tagflow{position:static;margin-top:10px;max-width:none}
+  body.src .tag.tagflow{display:inline-block}
+  table{width:100%;border-collapse:collapse}
+  th{font-weight:500;color:var(--sub);font-size:11px;text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:6px 8px}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:9px 8px;border-top:1px solid var(--bd);text-align:right;white-space:nowrap}
+  tr.row{cursor:pointer}
+  tr.row:hover{background:var(--raise)}
+  tr.sel{background:var(--accbg)}
+  .sym{font-weight:600}
+  .nm{display:block;color:var(--sub);font-size:12px;font-weight:400}
+  .up{color:var(--success)}.dn{color:var(--danger)}
+  .flashU{animation:fu .5s}.flashD{animation:fd .5s}
+  @keyframes fu{from{background:#123a2c}to{background:transparent}}
+  @keyframes fd{from{background:#3a1a1d}to{background:transparent}}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--success)}
+  .dot.c{background:var(--sub)}
+  .pill{display:inline-flex;align-items:center;font-size:12px;border-radius:999px;padding:2px 9px;background:var(--raise);color:var(--sub);white-space:nowrap}
+  .tf{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+  .tf button{background:transparent;border:1px solid var(--bd);color:var(--sub);border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit}
+  .tf button.on{background:var(--accbg);border-color:#1c3a55;color:var(--acc)}
+  .px{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline;margin-bottom:6px}
+  .px .big{font:500 26px "IBM Plex Mono",monospace}
+  svg{display:block;width:100%}
+  .meter{margin:10px 0}
+  .meter .l{display:flex;justify-content:space-between;color:var(--sub);font-size:13px;margin-bottom:4px}
+  .meter .l b{color:var(--ink);font-weight:500}
+  .track{height:6px;border-radius:3px;background:var(--raise);overflow:hidden}
+  .fill{height:100%;background:var(--acc)}
+  .fill.warn{background:var(--warning)}
+  .note{color:var(--sub);font-size:12px;margin-top:10px}
+  .ticket{opacity:.55}
+  .ticket .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .ticket .b{border:1px solid var(--bd);border-radius:6px;padding:9px;text-align:center;font-weight:600}
+  .ticket .b.s{color:var(--danger)}.ticket .b.bu{color:var(--success)}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:16px}
+  .legend .card{font-size:13px;color:var(--sub)}
+  .legend b{color:var(--ink)}
+</style>
+</head>
+<body>
+<header><div class="bar">
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px 24px">
+    <div class="logo">ESTIN</div>
+    <nav>
+      <a href="#">Dashboard</a><a class="on" href="#">Markets</a><a href="#">Buy a challenge</a><a href="#">Learn</a><a href="#">Support</a><a href="#">Competitions</a><a href="#">Notifications</a>
+    </nav>
+  </div>
+  <div class="who">Bella Buyer &nbsp; <u>Sign out</u></div>
+</div></header>
+
+<main>
+  <div class="banner">
+    <span><b>Prototype.</b> Prices on this page are made-up sample numbers that move on their own. Nothing here is connected to TraderMade yet.</span>
+    <button id="srcBtn" type="button">Show which TraderMade call feeds each part</button>
+  </div>
+
+  <div class="head">
+    <div><h1 style="font-size:22px">Markets</h1><p>Prices for the instruments your challenge allows.</p></div>
+    <span class="pill mono" id="clock"></span>
+  </div>
+
+  <div class="grid">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <section class="card">
+        <span class="tag">GET /live?currency=EURUSD,GBPUSD,… every 1–2 s (once, on our server)</span>
+        <h2>Watchlist</h2>
+        <div style="overflow-x:auto">
+        <table id="watch">
+          <thead><tr><th>Instrument</th><th>Bid</th><th>Ask</th><th>Spread</th><th>Today</th><th>Trend</th><th>Market</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+        <span class="tag tagflow">GET /market_open_status → the “Market” column</span>
+      </section>
+
+      <section class="card">
+        <span class="tag" id="chartTag">GET /timeseries?currency=EURUSD&interval=minute&period=5</span>
+        <div class="px"><h2 id="cSym" style="margin:0">EURUSD</h2><span class="big" id="cPx"></span><span id="cChg"></span></div>
+        <div class="tf" id="tf"></div>
+        <svg id="chart" viewBox="0 0 640 260" preserveAspectRatio="none" style="height:260px"></svg>
+      </section>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+      <section class="card">
+        <span class="tag">NOT from TraderMade: account equity comes from a trading platform or ESTIN's own engine</span>
+        <h2>Your 50K Challenge</h2>
+        <div class="meter"><div class="l"><span>Equity</span><b class="mono">€51,240.00</b></div></div>
+        <div class="meter"><div class="l"><span>Profit target</span><b class="mono">€1,240 / €5,000</b></div><div class="track"><div class="fill" style="width:25%"></div></div></div>
+        <div class="meter"><div class="l"><span>Daily loss used</span><b class="mono">€310 / €2,500</b></div><div class="track"><div class="fill" style="width:12%"></div></div></div>
+        <div class="meter"><div class="l"><span>Max loss (trailing)</span><b class="mono">€0 / €5,000</b></div><div class="track"><div class="fill" style="width:0%"></div></div></div>
+        <p class="note">Closes below €48,740.00 today, or below €46,240.00 overall. Prices alone cannot produce these numbers: they need the account's real positions.</p>
+      </section>
+
+      <section class="card ticket">
+        <span class="tag">Only if ESTIN builds its own terminal</span>
+        <h2>Order ticket <span class="pill" style="margin-left:6px">not part of price data</span></h2>
+        <div class="note" style="margin:0">Opening and closing trades needs a trading platform, or a terminal ESTIN would have to build and run.</div>
+        <div class="btns"><div class="b s">Sell <span class="mono" id="tSell"></span></div><div class="b bu">Buy <span class="mono" id="tBuy"></span></div></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="card"><b>What a price feed gives the portal</b><br>Live bid and ask, charts, today's move, whether a market is open, and history to look back on.</div>
+    <div class="card"><b>What it does not give</b><br>Who holds which trade, the account's equity, the loss limits, or any way to place an order. Those need a trading platform.</div>
+    <div class="card"><b>Where the key lives</b><br>The TraderMade key stays on ESTIN's server. Browsers never see it; one server call serves every trader.</div>
+  </div>
+</main>
+
+<script>
+/* All numbers below are SAMPLE data generated in the browser (a seeded random walk). */
+(function(){
+  function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+  var INS=[
+    {s:"EURUSD",n:"Euro / US Dollar",p:1.1818,d:5,spread:0.00002,vol:0.00007,open:true},
+    {s:"GBPUSD",n:"Pound / US Dollar",p:1.3170,d:5,spread:0.00003,vol:0.00009,open:true},
+    {s:"USDJPY",n:"US Dollar / Yen",p:151.42,d:3,spread:0.004,vol:0.012,open:true},
+    {s:"XAUUSD",n:"Gold / US Dollar",p:2338.5,d:2,spread:0.35,vol:0.22,open:true},
+    {s:"US30",n:"Dow Jones 30",p:39120,d:1,spread:1.8,vol:3.2,open:true},
+    {s:"UK100",n:"FTSE 100",p:8546.5,d:1,spread:1.2,vol:1.6,open:false,opens:"opens 08:00"}
+  ];
+  var TF=[{k:"1m",l:"1 min",ms:60e3,tag:"interval=minute&period=1"},{k:"5m",l:"5 min",ms:300e3,tag:"interval=minute&period=5"},{k:"15m",l:"15 min",ms:900e3,tag:"interval=minute&period=15"},{k:"1h",l:"1 hour",ms:3600e3,tag:"interval=hourly&period=1"},{k:"1d",l:"1 day",ms:86400e3,tag:"interval=daily&period=1"}];
+  var sel="EURUSD", tf="5m", N=60, now=Date.now();
+  var st={}, hist={};
+  INS.forEach(function(i,ix){
+    var r=rng(100+ix), base=i.p, ser=[];
+    for(var k=0;k<40;k++){base+= (r()-0.5)*i.vol*6; ser.push(base)}
+    st[i.s]={mid:ser[ser.length-1],prev:ser[ser.length-1],open:ser[0],spark:ser.slice()};
+    INS[ix].r=rng(900+ix);
+  });
+  function candles(i,t){ // sample OHLC history for the chart
+    var r=rng(7000+INS.indexOf(i)*31+TF.indexOf(t)*7), out=[], px=i.p, scale=Math.sqrt(t.ms/60e3)*0.6;
+    for(var k=0;k<N;k++){var o=px,c=o,h=o,l=o;for(var q=0;q<6;q++){c+= (r()-0.5)*i.vol*scale*1.6;h=Math.max(h,c);l=Math.min(l,c)}out.push({o:o,h:h,l:l,c:c});px=c}
+    var shift=st[i.s].mid-out[out.length-1].c;out.forEach(function(x){x.o+=shift;x.h+=shift;x.l+=shift;x.c+=shift});return out;
+  }
+  function fmt(i,v){return v.toFixed(i.d)}
+  function el(id){return document.getElementById(id)}
+
+  function buildTf(){el("tf").innerHTML=TF.map(function(t){return '<button type="button" data-k="'+t.k+'" class="'+(t.k===tf?"on":"")+'">'+t.l+'</button>'}).join("")}
+  el("tf").addEventListener("click",function(e){var k=e.target.getAttribute("data-k");if(k){tf=k;buildTf();draw(true)}});
+
+  function buildWatch(){
+    el("watch").querySelector("tbody").innerHTML=INS.map(function(i){
+      return '<tr class="row'+(i.s===sel?" sel":"")+'" data-s="'+i.s+'"><td><span class="sym">'+i.s+'</span><span class="nm">'+i.n+'</span></td>'+
+      '<td class="mono" id="b-'+i.s+'"></td><td class="mono" id="a-'+i.s+'"></td><td class="mono" id="sp-'+i.s+'" style="color:var(--sub)"></td>'+
+      '<td class="mono" id="ch-'+i.s+'"></td><td id="sk-'+i.s+'" style="width:90px"></td>'+
+      '<td>'+(i.open?'<span class="dot"></span>Open':'<span class="dot c"></span>Closed <span class="nm" style="display:inline">· '+i.opens+'</span>')+'</td></tr>';
+    }).join("");
+  }
+  el("watch").addEventListener("click",function(e){var tr=e.target.closest("tr.row");if(tr){sel=tr.getAttribute("data-s");buildWatch();paintWatch();draw(true)}});
+
+  function spark(arr,up){
+    var w=84,h=24,mn=Math.min.apply(null,arr),mx=Math.max.apply(null,arr),rg=(mx-mn)||1;
+    var pts=arr.map(function(v,k){return (k/(arr.length-1)*w).toFixed(1)+","+(h-2-((v-mn)/rg)*(h-4)).toFixed(1)}).join(" ");
+    return '<svg viewBox="0 0 '+w+' '+h+'" style="width:84px;height:24px"><polyline fill="none" stroke="'+(up?"#4fbe8b":"#d96b66")+'" stroke-width="1.4" points="'+pts+'"/></svg>';
+  }
+  function paintWatch(flash){
+    INS.forEach(function(i){
+      var s=st[i.s],bid=s.mid-i.spread/2,ask=s.mid+i.spread/2,chg=(s.mid-s.open)/s.open*100,up=chg>=0;
+      var b=el("b-"+i.s),a=el("a-"+i.s);
+      b.textContent=fmt(i,bid);a.textContent=fmt(i,ask);
+      if(flash&&i.open){var cls=s.mid>=s.prev?"flashU":"flashD";[b,a].forEach(function(c){c.classList.remove("flashU","flashD");void c.offsetWidth;c.classList.add(cls)})}
+      el("sp-"+i.s).textContent=(i.spread/(i.d>=4?0.0001:(i.d===3?0.01:(i.d===2?0.1:1)))).toFixed(1);
+      var c=el("ch-"+i.s);c.textContent=(up?"+":"")+chg.toFixed(2)+"%";c.className="mono "+(up?"up":"dn");
+      el("sk-"+i.s).innerHTML=spark(s.spark,up);
+    });
+  }
+
+  var cache={};
+  function draw(rebuild){
+    var i=INS.filter(function(x){return x.s===sel})[0],t=TF.filter(function(x){return x.k===tf})[0],key=sel+tf;
+    if(rebuild||!cache[key])cache[key]=candles(i,t);
+    var cs=cache[key],last=cs[cs.length-1],mid=st[sel].mid;
+    last.c=mid;last.h=Math.max(last.h,mid);last.l=Math.min(last.l,mid);
+    var W=640,H=260,pad=6,mn=Math.min.apply(null,cs.map(function(c){return c.l})),mx=Math.max.apply(null,cs.map(function(c){return c.h})),rg=(mx-mn)||1;
+    var y=function(v){return pad+(1-(v-mn)/rg)*(H-2*pad)},cw=W/cs.length,svg="";
+    for(var g=0;g<5;g++){var gy=pad+g*(H-2*pad)/4;svg+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="#1e2b3c" stroke-width="1" vector-effect="non-scaling-stroke"/>'}
+    cs.forEach(function(c,k){var x=k*cw+cw/2,up=c.c>=c.o,col=up?"#4fbe8b":"#d96b66";
+      svg+='<line x1="'+x+'" x2="'+x+'" y1="'+y(c.h)+'" y2="'+y(c.l)+'" stroke="'+col+'" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+      svg+='<rect x="'+(x-cw*0.32)+'" y="'+Math.min(y(c.o),y(c.c))+'" width="'+(cw*0.64)+'" height="'+Math.max(1.2,Math.abs(y(c.o)-y(c.c)))+'" fill="'+col+'"/>'});
+    svg+='<line x1="0" x2="'+W+'" y1="'+y(mid)+'" y2="'+y(mid)+'" stroke="#2e9bf0" stroke-dasharray="4 4" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+    el("chart").innerHTML=svg;
+    var s=st[sel],chg=(s.mid-s.open)/s.open*100;
+    el("cSym").textContent=sel;el("cPx").textContent=fmt(i,mid);
+    var ce=el("cChg");ce.textContent=(chg>=0?"+":"")+chg.toFixed(2)+"% today";ce.className=chg>=0?"up":"dn";
+    el("chartTag").textContent="GET /timeseries?currency="+sel+"&"+t.tag;
+    el("tSell").textContent=fmt(i,mid-i.spread/2);el("tBuy").textContent=fmt(i,mid+i.spread/2);
+  }
+
+  function tick(){
+    INS.forEach(function(i){
+      if(!i.open)return;var s=st[i.s];s.prev=s.mid;s.mid+= (i.r()-0.5)*i.vol*2;
+      s.spark.push(s.mid);if(s.spark.length>40)s.spark.shift();
+    });
+    paintWatch(true);draw(false);
+    el("clock").textContent="Sample data · "+new Date().toLocaleTimeString();
+  }
+  el("srcBtn").addEventListener("click",function(){var on=document.body.classList.toggle("src");this.classList.toggle("on",on);
+    this.textContent=on?"Hide the TraderMade call labels":"Show which TraderMade call feeds each part"});
+  buildTf();buildWatch();paintWatch(false);draw(true);tick();setInterval(tick,1200);
+})();
+</script>
+</body>
+</html>

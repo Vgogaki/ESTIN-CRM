@@ -29,6 +29,12 @@ Simulated trading terminal: six instruments on a random-walk price feed, market 
 
 Demonstrates the equity feed → rules engine → CRM status loop. **Not for production:** prices are synthetic, P&L maths is simplified to USD accounts, and there is no margin or leverage check. V1 uses a licensed platform or feed.
 
+## portal-markets.html
+
+A single self-contained page (open it in any browser, no build step) showing how a **Markets** page could look inside the trader portal if ESTIN used the TraderMade price API: a live watchlist (bid, ask, spread, today's move, sparkline, market open/closed), a candlestick chart with timeframes, and, deliberately separate, the account's equity and loss meters. A button on the page labels each part with the TraderMade call that would feed it (`/live`, `/timeseries`, `/market_open_status`).
+
+**Sample data only.** Prices are a seeded random walk generated in the browser; nothing calls TraderMade. It exists to settle what a price feed can and cannot give the portal (prices, charts, market hours: yes; account equity, positions, order execution: no, those need a trading platform, decisions.md #4). Added 22 Oct 2026.
+
 ## Known limitations across all three
 
 - Browser storage only; it fails on some mobile devices.

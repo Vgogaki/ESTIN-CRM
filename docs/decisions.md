@@ -43,7 +43,7 @@
 
 | # | Question | Blocks |
 |---|---|---|
-| 4 | Trading platform: licence (DXtrade, TradeLocker, Match-Trader, TradeTech) or build | Equity feed, all end-to-end testing |
+| 4 | Trading platform: licence (DXtrade, TradeLocker, Match-Trader, TradeTech) or build. **Still open. 23 Oct 2026: the build option is being explored: price service and trading engine foundation built (TraderMade as the price source, pending licence and streaming answers).** | Equity feed, all end-to-end testing |
 | 5 | Payment provider and currencies | Orders, refunds, chargebacks |
 | 6 | Payout rails / provider | Payouts |
 | 8 | Which legal entity holds the customer relationship, under what permission. **Checked in 29 Sept 2026 — still pending legal advice.** | Terms, KYC, payments |

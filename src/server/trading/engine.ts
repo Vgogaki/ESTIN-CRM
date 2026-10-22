@@ -107,7 +107,31 @@ export type OrderRejection = {
   message: string;
 };
 
-export type PreparedOrder = { ok: true; fillPrice: D; marginRequired: D } | ({ ok: false } & OrderRejection);
+/**
+ * Is a stop-loss / take-profit on the right side of the price, and far enough from it?
+ * `reference` is the price the level is measured from: the fill price for a new order,
+ * the price the position would close at right now when a level is changed afterwards
+ * (so a stop can never be set where it would trigger at once). Returns the first
+ * problem, or null if both levels are acceptable (either may be absent).
+ */
+export function stopLevelProblem(side: Side, stopLoss: D | null, takeProfit: D | null, reference: D, gap: D): OrderRejection | null {
+  const long = side === "buy";
+  if (stopLoss) {
+    const wrongSide = long ? stopLoss.greaterThan(reference.minus(gap)) : stopLoss.lessThan(reference.plus(gap));
+    if (stopLoss.lessThanOrEqualTo(0) || wrongSide) {
+      return { code: "bad_stop_loss", message: `A stop-loss for a ${side} must be at least ${gap.toString()} ${long ? "below" : "above"} the price (${reference.toString()}).` };
+    }
+  }
+  if (takeProfit) {
+    const wrongSide = long ? takeProfit.lessThan(reference.plus(gap)) : takeProfit.greaterThan(reference.minus(gap));
+    if (takeProfit.lessThanOrEqualTo(0) || wrongSide) {
+      return { code: "bad_take_profit", message: `A take-profit for a ${side} must be at least ${gap.toString()} ${long ? "above" : "below"} the price (${reference.toString()}).` };
+    }
+  }
+  return null;
+}
+
+export type PreparedOrder ={ ok: true; fillPrice: D; marginRequired: D } | ({ ok: false } & OrderRejection);
 
 /**
  * Everything that must be true before a market order is allowed, in the order a
@@ -143,19 +167,8 @@ export function prepareMarketOrder(input: {
   }
 
   const fill = entryPrice(input.side, input.quote);
-  const gap = spec.minStopDistance;
-  if (input.stopLoss) {
-    const wrongSide = input.side === "buy" ? input.stopLoss.greaterThan(fill.minus(gap)) : input.stopLoss.lessThan(fill.plus(gap));
-    if (input.stopLoss.lessThanOrEqualTo(0) || wrongSide) {
-      return reject("bad_stop_loss", `A stop-loss for a ${input.side} must be at least ${gap.toString()} ${input.side === "buy" ? "below" : "above"} the price (${fill.toString()}).`);
-    }
-  }
-  if (input.takeProfit) {
-    const wrongSide = input.side === "buy" ? input.takeProfit.lessThan(fill.plus(gap)) : input.takeProfit.greaterThan(fill.minus(gap));
-    if (input.takeProfit.lessThanOrEqualTo(0) || wrongSide) {
-      return reject("bad_take_profit", `A take-profit for a ${input.side} must be at least ${gap.toString()} ${input.side === "buy" ? "above" : "below"} the price (${fill.toString()}).`);
-    }
-  }
+  const levelProblem = stopLevelProblem(input.side, input.stopLoss, input.takeProfit, fill, spec.minStopDistance);
+  if (levelProblem) return { ok: false, ...levelProblem };
 
   const marginRequired = requiredMargin(input.lots, fill, spec, input.accountLeverageCap, input.convert);
   if (input.usedMargin.plus(marginRequired).greaterThan(input.equity)) {

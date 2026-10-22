@@ -64,6 +64,9 @@ export default function Terminal({ accounts, initialAccountId, pricesConfigured 
   const [ticketOk, setTicketOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState<string | null>(null);
+  // The position whose stop-loss / take-profit is being edited, with the text typed so far (kept here so the once-a-second refresh never wipes it).
+  const [editing, setEditing] = useState<{ id: string; stopLoss: string; takeProfit: string } | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const loadState = useCallback(async () => {
     const res = await fetch(`/api/portal/terminal/state?accountId=${encodeURIComponent(accountId)}`, { cache: "no-store" });
@@ -192,6 +195,31 @@ export default function Terminal({ accounts, initialAccountId, pricesConfigured 
     }
   }
 
+  async function saveLevels() {
+    if (!editing) return;
+    setSaving(true);
+    setTicketError(null);
+    setTicketOk(null);
+    try {
+      const res = await fetch(`/api/portal/terminal/positions/${editing.id}/levels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId, stopLoss: editing.stopLoss.trim() || null, takeProfit: editing.takeProfit.trim() || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        // Keep the editor open with what was typed, so it can be corrected.
+        setTicketError(data.error ?? "The change was refused.");
+        return;
+      }
+      setTicketOk("Stop-loss and take-profit updated.");
+      setEditing(null);
+      await loadState();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const a = state?.account;
   const ccy = a?.currency ?? "EUR";
   const positionsHere = useMemo(() => (state?.positions ?? []).filter((p) => p.symbol === symbol), [state, symbol]);
@@ -306,7 +334,26 @@ export default function Terminal({ accounts, initialAccountId, pricesConfigured 
             </div>
             <div className="overflow-x-auto">
               {tab === "positions" ? (
-                <PositionsTable state={state} currency={ccy} closing={closing} onClose={closePosition} />
+                <PositionsTable
+                  state={state}
+                  currency={ccy}
+                  closing={closing}
+                  onClose={closePosition}
+                  editing={editing && state?.positions.some((p) => p.id === editing.id) ? editing : null}
+                  saving={saving}
+                  onEdit={(p) => {
+                    setTicketError(null);
+                    setTicketOk(null);
+                    setEditing({ id: p.id, stopLoss: p.stopLoss ?? "", takeProfit: p.takeProfit ?? "" });
+                  }}
+                  error={editing ? ticketError : null}
+                  onEditChange={(key, value) => setEditing((e) => (e ? { ...e, [key]: value } : e))}
+                  onSave={saveLevels}
+                  onCancel={() => {
+                    setEditing(null);
+                    setTicketError(null);
+                  }}
+                />
               ) : (
                 <HistoryTable trades={history} currency={ccy} />
               )}
@@ -344,7 +391,7 @@ export default function Terminal({ accounts, initialAccountId, pricesConfigured 
                   </button>
                 </div>
                 {blocked && <p className="text-xs text-warning">{blocked}</p>}
-                {ticketError && <Alert tone="danger">{ticketError}</Alert>}
+                {ticketError && !editing && <Alert tone="danger">{ticketError}</Alert>}
                 {ticketOk && <Alert tone="success">{ticketOk}</Alert>}
                 <p className="text-xs text-sub">Orders fill at the current price shown by the server: buys at the ask, sells at the bid.</p>
               </div>
@@ -401,11 +448,39 @@ function Row({ label, value, strong, valueClass = "" }: { label: string; value: 
   );
 }
 
-function PositionsTable({ state, currency, closing, onClose }: { state: TerminalState | null; currency: string; closing: string | null; onClose: (id: string, label: string) => void }) {
+type Editing = { id: string; stopLoss: string; takeProfit: string };
+type OpenPositionRow = TerminalState["positions"][number];
+
+function PositionsTable({
+  state,
+  currency,
+  closing,
+  onClose,
+  editing,
+  saving,
+  error,
+  onEdit,
+  onEditChange,
+  onSave,
+  onCancel,
+}: {
+  state: TerminalState | null;
+  currency: string;
+  closing: string | null;
+  onClose: (id: string, label: string) => void;
+  editing: Editing | null;
+  saving: boolean;
+  error: string | null;
+  onEdit: (p: OpenPositionRow) => void;
+  onEditChange: (key: "stopLoss" | "takeProfit", value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
   if (!state) return <p className="p-6 text-sm text-sub">Loading…</p>;
   if (state.positions.length === 0) return <p className="p-6 text-sm text-sub">No open positions.</p>;
   const digits = (s: string) => state.instruments.find((i) => i.symbol === s)?.digits ?? 5;
   return (
+    <>
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-[11px] tracking-wide text-sub uppercase">
@@ -426,18 +501,54 @@ function PositionsTable({ state, currency, closing, onClose }: { state: Terminal
             <td className={`px-2 py-2 ${p.side === "buy" ? "text-success" : "text-danger"}`}>{p.side === "buy" ? "Buy" : "Sell"}</td>
             <td className="px-2 py-2 text-right font-mono">{p.lots}</td>
             <td className="px-2 py-2 text-right font-mono">{price(p.openPrice, digits(p.symbol))}</td>
-            <td className="px-2 py-2 text-right font-mono text-sub">{p.stopLoss ? price(p.stopLoss, digits(p.symbol)) : "—"}</td>
-            <td className="px-2 py-2 text-right font-mono text-sub">{p.takeProfit ? price(p.takeProfit, digits(p.symbol)) : "—"}</td>
+            {editing?.id === p.id ? (
+              <>
+                <td className="px-2 py-1.5 text-right">
+                  <Input className="w-24 text-right font-mono" value={editing.stopLoss} onChange={(e) => onEditChange("stopLoss", e.target.value)} inputMode="decimal" placeholder="none" aria-label="Stop-loss" disabled={saving} />
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  <Input className="w-24 text-right font-mono" value={editing.takeProfit} onChange={(e) => onEditChange("takeProfit", e.target.value)} inputMode="decimal" placeholder="none" aria-label="Take-profit" disabled={saving} />
+                </td>
+              </>
+            ) : (
+              <>
+                <td className="px-2 py-2 text-right font-mono text-sub">{p.stopLoss ? price(p.stopLoss, digits(p.symbol)) : "—"}</td>
+                <td className="px-2 py-2 text-right font-mono text-sub">{p.takeProfit ? price(p.takeProfit, digits(p.symbol)) : "—"}</td>
+              </>
+            )}
             <td className={`px-2 py-2 text-right font-mono ${pnlClass(p.floatingPnl)}`}>{money(p.floatingPnl, currency, true)}</td>
-            <td className="px-4 py-2 text-right">
-              <Button type="button" variant="ghost" disabled={closing === p.id} onClick={() => onClose(p.id, `${p.side === "buy" ? "buy" : "sell"} ${p.lots} ${p.symbol}`)}>
-                {closing === p.id ? "Closing…" : "Close"}
-              </Button>
+            <td className="px-4 py-2 text-right whitespace-nowrap">
+              {editing?.id === p.id ? (
+                <>
+                  <Button type="button" variant="ghost" disabled={saving} onClick={onSave}>
+                    {saving ? "Saving…" : "Save"}
+                  </Button>
+                  <Button type="button" variant="ghost" disabled={saving} onClick={onCancel}>
+                    Cancel
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button type="button" variant="ghost" disabled={closing === p.id || editing !== null} onClick={() => onEdit(p)}>
+                    Edit
+                  </Button>
+                  <Button type="button" variant="ghost" disabled={closing === p.id} onClick={() => onClose(p.id, `${p.side === "buy" ? "buy" : "sell"} ${p.lots} ${p.symbol}`)}>
+                    {closing === p.id ? "Closing…" : "Close"}
+                  </Button>
+                </>
+              )}
             </td>
           </tr>
         ))}
       </tbody>
     </table>
+    {editing && (
+      <div className="border-t border-bd p-3 text-xs text-sub">
+        Leave a box empty to remove that level. A stop-loss or take-profit is checked against the price the position would close at right now.
+        {error && <Alert tone="danger">{error}</Alert>}
+      </div>
+    )}
+    </>
   );
 }
 

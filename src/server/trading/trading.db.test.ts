@@ -455,6 +455,225 @@ describe("stop-loss and take-profit", () => {
   });
 });
 
+describe("changing the stop-loss and take-profit of an open position", () => {
+  const modify = (a: { account: { id: string }; person: { id: string } }, positionId: string, now: Date, levels: { stopLoss?: string | null; takeProfit?: string | null }) =>
+    tr.modifyPositionLevels({ accountId: a.account.id, personId: a.person.id, positionId, ipAddress: IP, now, ...levels });
+
+  it("sets, moves and removes each level on its own, and records before and after", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now);
+    expect(p.stopLoss).toBeNull();
+
+    const set = await modify(a, p.id, now, { stopLoss: "1.2400", takeProfit: "1.2700" });
+    expect(set.stopLoss?.toString()).toBe("1.24");
+    expect(set.takeProfit?.toString()).toBe("1.27");
+
+    // Leaving a level out keeps it; only the one given changes.
+    const moved = await modify(a, p.id, now, { stopLoss: "1.2450" });
+    expect(moved.stopLoss?.toString()).toBe("1.245");
+    expect(moved.takeProfit?.toString()).toBe("1.27");
+
+    // null (or empty) removes just that level.
+    const removed = await modify(a, p.id, now, { takeProfit: null });
+    expect(removed.stopLoss?.toString()).toBe("1.245");
+    expect(removed.takeProfit).toBeNull();
+    const blank = await modify(a, p.id, now, { stopLoss: "" });
+    expect(blank.stopLoss).toBeNull();
+
+    const logs = await db.auditLog.findMany({ where: { action: "trade.modified", entityId: p.id }, orderBy: { timestamp: "asc" } });
+    expect(logs).toHaveLength(4);
+    expect(logs[1].before).toMatchObject({ stopLoss: "1.24", takeProfit: "1.27" });
+    expect(logs[1].after).toMatchObject({ stopLoss: "1.245", takeProfit: "1.27" });
+    expect(logs[1]).toMatchObject({ actorType: "trader", actorId: a.person.id });
+  });
+
+  it("changing nothing is not logged, and asking to change nothing is refused", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now, { stopLoss: "1.2400" });
+    await modify(a, p.id, now, { stopLoss: "1.2400" });
+    expect(await db.auditLog.count({ where: { action: "trade.modified", entityId: p.id } })).toBe(0);
+    await expect(modify(a, p.id, now, {})).rejects.toMatchObject({ code: "nothing_to_change" });
+  });
+
+  it("checks a new level against the price the position would close at NOW, not where it was opened", async () => {
+    const a = await makeAccount();
+    const t0 = await feed();
+    const p = await buy(a, t0);
+    const t1 = await feed({ ...BASE, EURUSD: 1.3 }); // the long is now well in profit; it would close at the bid, 1.29999
+
+    await expect(modify(a, p.id, t1, { takeProfit: "1.2800" })).rejects.toMatchObject({ code: "bad_take_profit" }); // below the price: would fire at once
+    await expect(modify(a, p.id, t1, { stopLoss: "1.3100" })).rejects.toMatchObject({ code: "bad_stop_loss" }); // above the price
+    await expect(modify(a, p.id, t1, { stopLoss: "1.29995" })).rejects.toMatchObject({ code: "bad_stop_loss" }); // inside the minimum distance
+    // Locking in profit is fine: a stop below the current price but above the entry.
+    const locked = await modify(a, p.id, t1, { stopLoss: "1.2900", takeProfit: "1.3200" });
+    expect(locked.stopLoss?.toString()).toBe("1.29");
+    // A refused change leaves the position exactly as it was.
+    await expect(modify(a, p.id, t1, { stopLoss: "1.3100", takeProfit: "1.3300" })).rejects.toMatchObject({ code: "bad_stop_loss" });
+    const after = await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } });
+    expect(after.stopLoss?.toString()).toBe("1.29");
+    expect(after.takeProfit?.toString()).toBe("1.32");
+    await feed();
+  });
+
+  it("a short is measured the other way round (against the ask)", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now, { side: "sell" });
+    await expect(modify(a, p.id, now, { stopLoss: "1.2400" })).rejects.toMatchObject({ code: "bad_stop_loss" });
+    await expect(modify(a, p.id, now, { takeProfit: "1.2600" })).rejects.toMatchObject({ code: "bad_take_profit" });
+    const ok = await modify(a, p.id, now, { stopLoss: "1.2600", takeProfit: "1.2400" });
+    expect(ok.stopLoss?.toString()).toBe("1.26");
+    expect(ok.takeProfit?.toString()).toBe("1.24");
+  });
+
+  it("refuses bad numbers", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now);
+    await expect(modify(a, p.id, now, { stopLoss: "abc" })).rejects.toMatchObject({ code: "bad_number" });
+    await expect(modify(a, p.id, now, { stopLoss: "0" })).rejects.toMatchObject({ code: "bad_stop_loss" });
+    await expect(modify(a, p.id, now, { takeProfit: "-5" })).rejects.toMatchObject({ code: "bad_take_profit" });
+  });
+
+  it("only the owner can change it; a closed position, another account's position and a locked account are refused", async () => {
+    const a = await makeAccount();
+    const other = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now);
+    await expect(tr.modifyPositionLevels({ accountId: a.account.id, personId: other.person.id, positionId: p.id, stopLoss: "1.24", ipAddress: IP, now })).rejects.toMatchObject({ status: 404 });
+    // The right trader, but naming a position that is on a different account.
+    await expect(tr.modifyPositionLevels({ accountId: other.account.id, personId: other.person.id, positionId: p.id, stopLoss: "1.24", ipAddress: IP, now })).rejects.toMatchObject({ status: 404 });
+
+    await tr.closePosition({ accountId: a.account.id, positionId: p.id, actor: { type: "trader", personId: a.person.id }, now });
+    await expect(modify(a, p.id, now, { stopLoss: "1.2400" })).rejects.toMatchObject({ code: "already_closed", status: 409 });
+
+    const q = await buy(a, now);
+    await db.account.update({ where: { id: a.account.id }, data: { status: "breached", phase: "closed" } });
+    await expect(modify(a, q.id, now, { stopLoss: "1.2400" })).rejects.toMatchObject({ code: "account_not_tradable" });
+  });
+
+  it("without a current price a level can be removed but not set (it can't be checked)", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now, { stopLoss: "1.2400", takeProfit: "1.2700" });
+    const stale = new Date(now.getTime() + 120_000);
+    await expect(modify(a, p.id, stale, { stopLoss: "1.2300" })).rejects.toMatchObject({ code: "no_price", status: 503 });
+    const removed = await modify(a, p.id, stale, { takeProfit: null });
+    expect(removed.takeProfit).toBeNull();
+    expect(removed.stopLoss?.toString()).toBe("1.24");
+  });
+
+  it("a change and a close at the same moment can't both win: the position ends closed once, and the change is refused or lands before it", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    const p = await buy(a, now);
+    const results = await Promise.allSettled([
+      modify(a, p.id, now, { stopLoss: "1.2400" }),
+      tr.closePosition({ accountId: a.account.id, positionId: p.id, actor: { type: "trader", personId: a.person.id }, now }),
+    ]);
+    expect(results[1].status).toBe("fulfilled");
+    if (results[0].status === "rejected") expect(results[0].reason).toMatchObject({ code: "already_closed" });
+    const row = await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } });
+    expect(row.status).toBe("closed");
+    expect(await db.auditLog.count({ where: { action: "trade.closed", entityId: p.id } })).toBe(1);
+  });
+
+  it("a stop set through this path still closes the position when the price reaches it", async () => {
+    const a = await makeAccount();
+    const t0 = await feed();
+    const p = await buy(a, t0);
+    await modify(a, p.id, t0, { stopLoss: "1.2400" });
+    const t1 = await feed({ ...BASE, EURUSD: 1.239 });
+    const res = await tr.processStops(t1);
+    expect(res.closed).toBeGreaterThanOrEqual(1);
+    expect((await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } })).closeReason).toBe("stop_loss");
+    await feed();
+  });
+});
+
+describe("staff view and force-close", () => {
+  let av: typeof import("@/server/trading/admin-view");
+  beforeAll(async () => {
+    av = await import("@/server/trading/admin-view");
+  });
+  const makeAdmin = () =>
+    db.adminUser.create({
+      data: { email: `adm${next()}@force.test`, name: "Ops", passwordHash: "x", role: { connectOrCreate: { where: { name: "force-r" }, create: { name: "force-r", permissions: [] } } } },
+    });
+
+  it("shows a trader's open positions with live profit and the latest closed trades, and nothing for someone who never traded", async () => {
+    const a = await makeAccount();
+    const idle = await makeAccount();
+    const t0 = await feed();
+    const open = await buy(a, t0, { stopLoss: "1.2400" });
+    const done = await buy(a, t0, { lots: 2 });
+    await tr.closePosition({ accountId: a.account.id, positionId: done.id, actor: { type: "trader", personId: a.person.id }, now: t0 });
+
+    const view = await av.getPersonTrading(a.person.id, t0);
+    expect(view.pricesCurrent).toBe(true);
+    expect(view.accounts).toHaveLength(1);
+    const acc = view.accounts[0];
+    expect(acc.open.map((x) => x.id)).toEqual([open.id]);
+    expect(acc.open[0]).toMatchObject({ symbol: "EURUSD", side: "buy", stopLoss: "1.24" });
+    expect(acc.open[0].floatingPnl).not.toBeNull();
+    expect(acc.closed.map((x) => x.id)).toEqual([done.id]);
+    expect((await av.getPersonTrading(idle.person.id, t0)).accounts).toEqual([]);
+  });
+
+  it("with no current price it shows the positions without profits instead of guessing", async () => {
+    const a = await makeAccount();
+    const now = await feed();
+    await buy(a, now);
+    const view = await av.getPersonTrading(a.person.id, new Date(now.getTime() + 120_000));
+    expect(view.pricesCurrent).toBe(false);
+    expect(view.accounts[0].open).toHaveLength(1);
+    expect(view.accounts[0].open[0].floatingPnl).toBeNull();
+    expect(view.accounts[0].liveEquity).toBeNull();
+  });
+
+  it("a force-close needs a reason, settles at the current price like any close, and is audited with the staff member and the reason", async () => {
+    const a = await makeAccount();
+    const admin = await makeAdmin();
+    const t0 = await feed();
+    const p = await buy(a, t0);
+    const t1 = await feed({ ...BASE, EURUSD: 1.26 });
+    const base = { personId: a.person.id, accountId: a.account.id, positionId: p.id, adminId: admin.id, ipAddress: IP, now: t1 };
+
+    await expect(av.forceClosePosition({ ...base, reason: "  " })).rejects.toMatchObject({ status: 400 });
+    expect((await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("open");
+
+    const closed = await av.forceClosePosition({ ...base, reason: "Disputed trade: closed on request of the risk team" });
+    expect(closed.netPnl.toString()).toBe("792.06"); // same maths as the trader's own close
+    expect(await balanceOf(a.account.id)).toBe("100792.06");
+    const row = await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } });
+    expect(row).toMatchObject({ status: "closed", closeReason: "admin" });
+    const log = await db.auditLog.findFirstOrThrow({ where: { action: "trade.closed", entityId: p.id } });
+    expect(log).toMatchObject({ actorType: "admin", actorId: admin.id, reason: "Disputed trade: closed on request of the risk team" });
+    expect(log.after).toMatchObject({ reason: "admin", netPnl: "792.06" });
+
+    // Closing it again is refused, not repeated.
+    await expect(av.forceClosePosition({ ...base, reason: "Second attempt at the same" })).rejects.toMatchObject({ code: "already_closed" });
+    await feed();
+  });
+
+  it("a force-close from the wrong trader's page, or with no current price, is refused and changes nothing", async () => {
+    const a = await makeAccount();
+    const stranger = await makeAccount();
+    const admin = await makeAdmin();
+    const now = await feed();
+    const p = await buy(a, now);
+    const base = { positionId: p.id, adminId: admin.id, ipAddress: IP, reason: "Reviewing the account", now };
+
+    await expect(av.forceClosePosition({ ...base, personId: stranger.person.id, accountId: a.account.id })).rejects.toMatchObject({ status: 404 });
+    await expect(av.forceClosePosition({ ...base, personId: a.person.id, accountId: stranger.account.id })).rejects.toMatchObject({ status: 404 });
+    await expect(av.forceClosePosition({ ...base, personId: a.person.id, accountId: a.account.id, now: new Date(now.getTime() + 120_000) })).rejects.toMatchObject({ code: "no_price", status: 503 });
+    expect((await db.tradePosition.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("open");
+    expect(await balanceOf(a.account.id)).toBe("100000");
+  });
+});
+
 describe("the market being closed (kept last: it moves the clock to a Saturday)", () => {
   it("refuses to open a position on a closed market, even with a price on file", async () => {
     const a = await makeAccount();

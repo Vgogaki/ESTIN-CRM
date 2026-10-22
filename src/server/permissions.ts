@@ -7,6 +7,7 @@ export const PERMISSIONS = [
   "traders.view",
   "traders.edit",
   "traders.void",
+  "trading.forceClose",
   "notes.create",
   "kyc.view",
   "kyc.decide",
@@ -44,6 +45,7 @@ export const DEFAULT_ROLES: Record<string, readonly Permission[]> = {
   operations: [
     "traders.view",
     "traders.edit",
+    "trading.forceClose",
     "notes.create",
     "kyc.view",
     "offers.manage",

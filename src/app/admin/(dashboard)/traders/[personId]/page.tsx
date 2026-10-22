@@ -9,6 +9,8 @@ import { linksForPerson } from "@/server/account-links";
 import { devicesForPerson } from "@/server/devices";
 import { riskProfile } from "@/server/risk";
 import RiskCard from "./risk-card";
+import TradingCard from "./trading-card";
+import { getPersonTrading } from "@/server/trading/admin-view";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { getPersonActivity } from "@/server/person-activity";
@@ -32,6 +34,7 @@ export default async function TraderDetailPage({
 
   const links = await linksForPerson(person.id);
   const risk = await riskProfile(person.id);
+  const trading = await getPersonTrading(person.id);
   const devices = hasPermission(admin.role.permissions, "risk.review") ? await devicesForPerson(person.id) : null;
   const activity = await getPersonActivity(person.id, {
     audit: hasPermission(admin.role.permissions, "auditLog.view"),
@@ -163,6 +166,14 @@ export default async function TraderDetailPage({
           })),
         )}
       />
+      {trading.accounts.length > 0 && (
+        <TradingCard
+          personId={person.id}
+          accounts={trading.accounts}
+          pricesCurrent={trading.pricesCurrent}
+          canForceClose={hasPermission(admin.role.permissions, "trading.forceClose")}
+        />
+      )}
       <RiskCard
         personId={person.id}
         canReview={hasPermission(admin.role.permissions, "risk.review")}

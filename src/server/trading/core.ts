@@ -63,7 +63,7 @@ export async function loadMarket(client: Tx | typeof db, now: Date): Promise<Mar
  * audit entry. Only a position that is STILL open can be closed, whoever else is
  * trying to at the same moment.
  */
-export async function closeInTx(tx: Tx, position: { id: string; accountId: string }, reason: TradeCloseReason, actor: Actor, now: Date, market: Market, ipAddress: string | null) {
+export async function closeInTx(tx: Tx, position: { id: string; accountId: string }, reason: TradeCloseReason, actor: Actor, now: Date, market: Market, ipAddress: string | null, note: string | null = null) {
   const row = await tx.tradePosition.findUniqueOrThrow({ where: { id: position.id }, include: { account: { include: { challengeType: true } } } });
   if (row.status !== "open") throw new TradeRejected("already_closed", "This position is already closed.", 409);
   const spec = market.specs[row.symbol];
@@ -99,6 +99,7 @@ export async function closeInTx(tx: Tx, position: { id: string; accountId: strin
       entityId: row.id,
       before: { balance: balanceBefore.toString() },
       after: { balance: updated.balance.toString(), reason, price: outcome.closePrice.toString(), tickId: quote.tickId, grossPnl: outcome.grossPnl.toString(), commission: outcome.commission.toString(), netPnl: outcome.netPnl.toString(), newTradingDay: newDay },
+      reason: note,
       ipAddress,
     },
     tx,

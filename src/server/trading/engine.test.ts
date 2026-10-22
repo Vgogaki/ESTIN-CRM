@@ -10,6 +10,7 @@ import {
   pnlInQuoteCurrency,
   prepareMarketOrder,
   requiredMargin,
+  stopLevelProblem,
   stopTrigger,
   type OpenPosition,
 } from "./engine";
@@ -193,6 +194,32 @@ describe("prepareMarketOrder", () => {
   it("a lower account leverage cap needs more margin", () => {
     const r = prepareMarketOrder({ ...base(), accountLeverageCap: 30 });
     expect(r.ok && r.marginRequired.toString()).toBe("3333.34");
+  });
+});
+
+describe("stopLevelProblem (levels on an open position, measured from where it would close)", () => {
+  const gap = d("0.0001");
+  const bid = d("1.30000");
+  it("accepts levels on the right side and far enough away, and accepts none", () => {
+    expect(stopLevelProblem("buy", d("1.2900"), d("1.3200"), bid, gap)).toBeNull();
+    expect(stopLevelProblem("buy", null, null, bid, gap)).toBeNull();
+    expect(stopLevelProblem("sell", d("1.3100"), d("1.2800"), bid, gap)).toBeNull();
+  });
+  it("is exact at the minimum distance", () => {
+    expect(stopLevelProblem("buy", d("1.2999"), null, bid, gap)).toBeNull();
+    expect(stopLevelProblem("buy", d("1.29991"), null, bid, gap)).toMatchObject({ code: "bad_stop_loss" });
+    expect(stopLevelProblem("buy", null, d("1.3001"), bid, gap)).toBeNull();
+    expect(stopLevelProblem("buy", null, d("1.30009"), bid, gap)).toMatchObject({ code: "bad_take_profit" });
+  });
+  it("refuses the wrong side, for a buy and for a sell", () => {
+    expect(stopLevelProblem("buy", d("1.3100"), null, bid, gap)).toMatchObject({ code: "bad_stop_loss" });
+    expect(stopLevelProblem("buy", null, d("1.2800"), bid, gap)).toMatchObject({ code: "bad_take_profit" });
+    expect(stopLevelProblem("sell", d("1.2900"), null, bid, gap)).toMatchObject({ code: "bad_stop_loss" });
+    expect(stopLevelProblem("sell", null, d("1.3100"), bid, gap)).toMatchObject({ code: "bad_take_profit" });
+  });
+  it("refuses zero and negative levels", () => {
+    expect(stopLevelProblem("buy", d("0"), null, bid, gap)).toMatchObject({ code: "bad_stop_loss" });
+    expect(stopLevelProblem("sell", null, d("-1"), bid, gap)).toMatchObject({ code: "bad_take_profit" });
   });
 });
 

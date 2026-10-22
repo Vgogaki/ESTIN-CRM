@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { writeAuditLog } from "@/server/audit";
 import { ValidationError } from "@/server/errors";
 import { lockAccount } from "@/server/row-lock";
-import { floatingPnl, prepareMarketOrder, stopTrigger, type Quote, type Side } from "./engine";
+import { exitPrice, floatingPnl, prepareMarketOrder, stopLevelProblem, stopTrigger, type Quote, type Side } from "./engine";
 import { converterTo, RateUnavailable } from "./fx";
 import { getFreshPrices } from "./price-service";
 import { auditActor, closeInTx, loadMarket, snapshotFor, toOpenPosition, TradeRejected, type Actor } from "./core";
@@ -20,8 +20,8 @@ import { syncAfterTrade } from "./account-link";
  * After each order or close the account's equity is brought up to date and the
  * challenge rules are applied to it (account-link.ts).
  *
- * Nothing in the portal or back office calls these functions yet (no screen, no API
- * route): they are exercised by tests and by scripts/terminal-demo.ts.
+ * The trader's terminal (portal) and the back office's positions view call these
+ * through their API routes; tests and scripts/terminal-demo.ts call them directly.
  */
 
 export { TradeRejected, type Actor };
@@ -136,7 +136,74 @@ export async function placeMarketOrder(input: {
   return position;
 }
 
-export async function closePosition(input: { accountId: string; positionId: string; reason?: TradeCloseReason; actor: Actor; ipAddress?: string | null; now?: Date }) {
+/**
+ * Changes, or removes, the stop-loss and take-profit of one of a trader's open positions.
+ * For each level: leave it out (undefined) to keep it as it is, send null or "" to remove
+ * it, or send a price to set it. A new level is checked against the price the position
+ * would close at right now, so it can't sit on the wrong side or so close that it fires
+ * at once. Runs under the account lock, so it can't cross a close or a stop being hit:
+ * whichever gets the lock first wins, and a position that has closed meanwhile is refused.
+ */
+export async function modifyPositionLevels(input: {
+  accountId: string;
+  positionId: string;
+  personId: string;
+  stopLoss?: string | number | null;
+  takeProfit?: string | number | null;
+  ipAddress?: string | null;
+  now?: Date;
+}) {
+  const now = input.now ?? new Date();
+  const newStop = input.stopLoss === undefined ? undefined : asDecimal(input.stopLoss, "Stop-loss");
+  const newTarget = input.takeProfit === undefined ? undefined : asDecimal(input.takeProfit, "Take-profit");
+  if (newStop === undefined && newTarget === undefined) throw new TradeRejected("nothing_to_change", "Nothing to change.", 400);
+
+  return db.$transaction(async (tx) => {
+    await lockAccount(tx, input.accountId);
+    const account = await tx.account.findUniqueOrThrow({ where: { id: input.accountId }, select: { personId: true, voidedAt: true, status: true, phase: true } });
+    const row = await tx.tradePosition.findUnique({ where: { id: input.positionId } });
+    if (!row || row.accountId !== input.accountId || account.personId !== input.personId) throw new ValidationError("Position not found.", 404);
+    if (row.status !== "open") throw new TradeRejected("already_closed", "This position is already closed.", 409);
+    if (account.voidedAt || account.status !== "active" || (account.phase !== "evaluation" && account.phase !== "funded")) {
+      throw new TradeRejected("account_not_tradable", "This account isn't open for trading.");
+    }
+
+    const stopLoss = newStop === undefined ? row.stopLoss : newStop;
+    const takeProfit = newTarget === undefined ? row.takeProfit : newTarget;
+    const sameStop = (stopLoss === null && row.stopLoss === null) || (stopLoss !== null && row.stopLoss !== null && stopLoss.equals(row.stopLoss));
+    const sameTarget = (takeProfit === null && row.takeProfit === null) || (takeProfit !== null && row.takeProfit !== null && takeProfit.equals(row.takeProfit));
+    if (sameStop && sameTarget) return row;
+
+    // Only a level that is actually being set is checked: removing one, or leaving one alone, needs no price.
+    const checkStop = newStop !== undefined && !sameStop ? stopLoss : null;
+    const checkTarget = newTarget !== undefined && !sameTarget ? takeProfit : null;
+    if (checkStop || checkTarget) {
+      const { specs, prices } = await loadMarket(tx, now);
+      const spec = specs[row.symbol];
+      const quote = prices.quotes[row.symbol];
+      if (!spec || !quote) throw new TradeRejected("no_price", `There's no current price for ${row.symbol}, so the level can't be checked right now.`, 503);
+      const problem = stopLevelProblem(row.side, checkStop, checkTarget, exitPrice(row.side, quote), spec.minStopDistance);
+      if (problem) throw new TradeRejected(problem.code, problem.message);
+    }
+
+    const updated = await tx.tradePosition.update({ where: { id: row.id }, data: { stopLoss, takeProfit } });
+    await writeAuditLog(
+      {
+        ...auditActor({ type: "trader", personId: input.personId }),
+        action: "trade.modified",
+        entityType: "TradePosition",
+        entityId: row.id,
+        before: { stopLoss: row.stopLoss?.toString() ?? null, takeProfit: row.takeProfit?.toString() ?? null },
+        after: { stopLoss: stopLoss?.toString() ?? null, takeProfit: takeProfit?.toString() ?? null },
+        ipAddress: input.ipAddress ?? null,
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function closePosition(input: { accountId: string; positionId: string; reason?: TradeCloseReason; actor: Actor; ipAddress?: string | null; note?: string | null; now?: Date }) {
   const now = input.now ?? new Date();
   const closed = await db.$transaction(async (tx) => {
     await lockAccount(tx, input.accountId);
@@ -147,7 +214,7 @@ export async function closePosition(input: { accountId: string; positionId: stri
       if (owner.personId !== input.actor.personId) throw new ValidationError("Position not found.", 404);
     }
     const market = await loadMarket(tx, now);
-    return closeInTx(tx, p, input.reason ?? "manual", input.actor, now, market, input.ipAddress ?? null);
+    return closeInTx(tx, p, input.reason ?? "manual", input.actor, now, market, input.ipAddress ?? null, input.note ?? null);
   });
   await syncAfterTrade(input.accountId, now);
   return closed;

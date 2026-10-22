@@ -171,6 +171,7 @@ Legend: 🟢 built and verified; 🟡 built, with a known gap, a pending vendor 
 | Access and security | AdminUser, AdminRole, AdminSession, AdminRecoveryCode, TraderSession, AffiliateSession, AuthToken |
 | Audit | AuditLog (append-only) |
 | Operations | StaffTask (work waiting on staff, with status: pending, in review, completed) |
+| Trading (engine foundation) | Instrument, PriceTick (append-only), TradePosition |
 | Purchasing | CheckoutSession (a trader's pending portal purchase: server-set price, pinned challenge version, terms, payment result) |
 | Compliance | CountryRule, CountryReview, JurisdictionInput |
 | Engagement | Notification, SupportThread, SupportMessage, SupportAttachment, TrainingArticle |
@@ -297,6 +298,7 @@ Trading platform / equity feed, payment provider, payout rails, KYC identity-ver
 | `EMAIL_DRIVER`, `SMTP_URL`, `EMAIL_FROM` | Optional | Email delivery (default: record only) |
 | `APP_BASE_URL` | Optional | Address used in email links |
 | `PAYMENT_DRIVER` | Optional | Unset = portal purchases off (the live default). `demo` = labelled simulated payment, local and review copies only |
+| `PRICE_DRIVER`, `TRADERMADE_API_KEY`, `PRICE_POLL_MS`, `PRICE_MAX_AGE_MS` | Optional | Price service for the simulated terminal. Unset = no prices, nothing runs. `tradermade` (needs the key, server-side only) or `simulated` (local/review only) |
 | `MAX_ACTIVE_ACCOUNTS` | Optional | Most challenge accounts one trader may hold at once. Unset/0 = no limit |
 | `GEOIP_DRIVER`, `GEOIP_API_URL` | Optional | IP geolocation (default: off) |
 | `REVIEW_GATE`, `REVIEW_GATE_USER`, `REVIEW_GATE_PASSWORD` | Staging only | Site-wide password gate |

@@ -381,6 +381,7 @@ model Account {
   withdrawals     Withdrawal[]
   termsAcceptance TermsAcceptance[]
   payments        Payment[]
+  positions       TradePosition[]
 
   @@index([personId])
   @@index([challengeTypeId])
@@ -1016,6 +1017,127 @@ model Affiliate {
   affiliateSessions AffiliateSession[]
   codes             AffiliateCode[]
   referrals         AffiliateReferral[]
+}
+
+/// An instrument that can be traded in ESTIN's simulated terminal, and everything
+/// the trading engine needs to know about it (lot limits, leverage, bad-price
+/// thresholds, trading hours). Data, not code: staff can change it without a
+/// release. A challenge's permittedInstruments list refers to `symbol`.
+/// Every number in the starting set is a placeholder to be confirmed (see
+/// src/server/trading/instruments.ts).
+model Instrument {
+  symbol           String          @id
+  providerSymbol   String
+  name             String
+  assetClass       InstrumentClass
+  quoteCurrency    String
+  digits           Int
+  pipSize          Decimal         @db.Decimal(18, 8)
+  contractSize     Decimal         @db.Decimal(18, 4)
+  minLot           Decimal         @db.Decimal(10, 2)
+  maxLot           Decimal         @db.Decimal(10, 2)
+  lotStep          Decimal         @db.Decimal(10, 2)
+  maxLeverage      Int
+  minStopDistance  Decimal         @db.Decimal(18, 8)
+  /// A price move bigger than this (percent between two ticks) is held until the next tick confirms it.
+  maxJumpPct       Decimal         @db.Decimal(6, 3)
+  /// A bid/ask gap wider than this (percent of price) is a bad quote.
+  maxSpreadPct     Decimal         @db.Decimal(6, 3)
+  commissionPerLot Decimal         @default(0) @db.Decimal(10, 2)
+  /// Weekly open windows in minutes since Sunday 00:00 UTC: [[start, end], ...].
+  sessions         Json
+  enabled          Boolean         @default(true)
+  updatedAt        DateTime        @updatedAt
+
+  positions TradePosition[]
+}
+
+enum InstrumentClass {
+  forex
+  metal
+  index
+}
+
+/// Every price the provider has sent, kept exactly as received so any dispute can
+/// be checked against the record. APPEND-ONLY (a database trigger rejects UPDATE and
+/// DELETE, like the audit log). Only `accepted` ticks are ever used for trading;
+/// `suspect` ones (a jump held until the next tick confirms it) and `rejected` ones
+/// are kept as evidence only.
+model PriceTick {
+  id             String          @id @default(cuid())
+  symbol         String
+  bid            Decimal         @db.Decimal(18, 8)
+  ask            Decimal         @db.Decimal(18, 8)
+  /// The provider's time for the quote.
+  quoteTs        DateTime
+  receivedAt     DateTime        @default(now())
+  source         String
+  status         PriceTickStatus
+  reason         String?
+  /// For an accepted tick that confirmed an earlier suspect jump: that suspect's id.
+  confirmsTickId String?
+
+  @@unique([symbol, source, quoteTs, bid, ask])
+  @@index([symbol, status, receivedAt])
+}
+
+enum PriceTickStatus {
+  accepted
+  suspect
+  rejected
+}
+
+/// A position in the simulated terminal: open until closed, never deleted. Each
+/// fill records the id of the exact price tick it used (openTickId, closeTickId),
+/// so any fill can be traced to the stored price behind it.
+model TradePosition {
+  id          String          @id @default(cuid())
+  accountId   String
+  account     Account         @relation(fields: [accountId], references: [id])
+  symbol      String
+  instrument  Instrument      @relation(fields: [symbol], references: [symbol])
+  side        TradeSide
+  lots        Decimal         @db.Decimal(10, 2)
+  openPrice   Decimal         @db.Decimal(18, 8)
+  openedAt    DateTime        @default(now())
+  openTickId  String
+  stopLoss    Decimal?        @db.Decimal(18, 8)
+  takeProfit  Decimal?        @db.Decimal(18, 8)
+  /// Margin held while open, in the account currency, fixed at the time of opening.
+  marginUsed  Decimal         @db.Decimal(14, 2)
+
+  status      TradeStatus     @default(open)
+  closePrice  Decimal?        @db.Decimal(18, 8)
+  closedAt    DateTime?
+  closeTickId String?
+  closeReason TradeCloseReason?
+  /// Profit before charges, in the account currency.
+  grossPnl    Decimal?        @db.Decimal(14, 2)
+  commission  Decimal         @default(0) @db.Decimal(14, 2)
+  /// Value of one unit of the quote currency in the account currency when it closed.
+  closeFxRate Decimal?        @db.Decimal(18, 8)
+
+  @@index([accountId, status])
+  @@index([status])
+}
+
+enum TradeSide {
+  buy
+  sell
+}
+
+enum TradeStatus {
+  open
+  closed
+}
+
+enum TradeCloseReason {
+  manual
+  stop_loss
+  take_profit
+  admin
+  breach
+  pass
 }
 
 /// A trader buying a challenge in the portal: the pending order. The PRICE is fixed

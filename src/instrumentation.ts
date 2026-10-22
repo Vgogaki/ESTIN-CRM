@@ -14,5 +14,12 @@ export async function register() {
     } catch (err) {
       console.error("[instrumentation] failed to start scheduled jobs", err);
     }
+    // Prices for the simulated terminal. Does nothing unless PRICE_DRIVER is set.
+    try {
+      const { startPriceService } = await import("@/server/trading/service");
+      startPriceService();
+    } catch (err) {
+      console.error("[instrumentation] failed to start the price service", err);
+    }
   }
 }
